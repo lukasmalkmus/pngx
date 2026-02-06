@@ -1,0 +1,23 @@
+[package]
+name = "pngx-client"
+version = "0.1.0"
+description = "API client library for Paperless NGX"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+jiff = { version = "0.2", features = ["serde"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+ureq = { version = "3", features = ["json", "gzip"] }
+url = "2"
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+wiremock = "0.6"
+tokio = { version = "1", features = ["rt", "macros"] }
