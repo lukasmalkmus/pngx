@@ -1,0 +1,14 @@
+{
+  "name": "pngx",
+  "description": "Search and retrieve documents from Paperless-ngx",
+  "version": "0.1.0",
+  "author": "Lukas Malkmus",
+  "license": "MIT",
+  "repository": "https://github.com/lukasmalkmus/pngx",
+  "skills": [
+    {
+      "name": "paperless-search",
+      "path": "skills/paperless-search/SKILL.md"
+    }
+  ]
+}

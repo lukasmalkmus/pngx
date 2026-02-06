@@ -1,0 +1,11 @@
+{
+  "name": "pngx",
+  "title": "Paperless-ngx CLI",
+  "description": "Search, browse, and retrieve documents from a Paperless-ngx instance.",
+  "author": "Lukas Malkmus",
+  "categories": ["productivity", "document-management"],
+  "tags": ["paperless-ngx", "documents", "search", "cli"],
+  "homepage": "https://github.com/lukasmalkmus/pngx",
+  "repository": "https://github.com/lukasmalkmus/pngx",
+  "license": "MIT"
+}
