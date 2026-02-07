@@ -19,7 +19,7 @@ pngx-client = { path = "../pngx-client" }
 anyhow = "1"
 clap = { version = "4", features = ["derive", "env", "wrap_help"] }
 comfy-table = "7"
-etcetera = "0.10"
+etcetera = "0.11"
 figment = { version = "0.10", features = ["toml", "env"] }
 jiff = "0.2"
 open = "5"
