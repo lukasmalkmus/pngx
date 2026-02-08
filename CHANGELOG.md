@@ -7,22 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-02-09
+
+### Added
+
+- Plugin hook that nudges agents to use the paperless skill when running pngx commands directly
+
 ## [0.4.0] - 2026-02-08
+
+### Added
+
+- `auth status` shows authenticated user display name
+
+### Fixed
+
+- Fix `version` and `auth status` failing on Paperless-ngx 2.x (nested API response)
+
+## [0.3.0] - 2026-02-08
 
 ### Added
 
 - `inbox` command to list unprocessed documents
 - `version` command shows Paperless-ngx server version when configured
-- `auth status` verifies server connection, shows user and server version
+- `auth status` verifies server connection and shows server version
 
 ### Changed
 
 - `version` command errors (exit 4) when configured server is unreachable
 - `-o`/`--output` flag only shown on commands that produce formatted output
-
-### Fixed
-
-- Fix `version` and `auth status` failing on Paperless-ngx 2.x (nested API response)
 
 ## [0.2.0] - 2026-02-08
 
@@ -43,7 +55,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Release workflow with cross-compiled binaries
 - Agent skill for Paperless-ngx document search
 
-[Unreleased]: https://github.com/lukasmalkmus/pngx/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/lukasmalkmus/pngx/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/lukasmalkmus/pngx/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/lukasmalkmus/pngx/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/lukasmalkmus/pngx/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/lukasmalkmus/pngx/compare/v0.1.0...v0.2.0

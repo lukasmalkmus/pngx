@@ -1,0 +1,16 @@
+{
+  "description": "Nudge agents to use the paperless skill for pngx commands",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/nudge-skill.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
