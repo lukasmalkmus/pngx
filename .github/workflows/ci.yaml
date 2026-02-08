@@ -44,15 +44,29 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo clippy --all-targets -- -D warnings
 
+  msrv:
+    name: MSRV
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.msrv.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract MSRV from Cargo.toml
+        id: msrv
+        run: |
+          MSRV=$(grep -m1 '^rust-version' Cargo.toml | sed 's/.*"\(.*\)"/\1/')
+          echo "version=$MSRV" >> "$GITHUB_OUTPUT"
+
   test:
     name: Test (${{ matrix.toolchain }}, ${{ matrix.os }})
+    needs: msrv
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         include:
           - toolchain: stable
             os: ubuntu-latest
-          - toolchain: "1.93"
+          - toolchain: ${{ needs.msrv.outputs.version }}
             os: ubuntu-latest
           - toolchain: stable
             os: windows-latest
