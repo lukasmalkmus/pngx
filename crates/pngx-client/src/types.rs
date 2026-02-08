@@ -24,11 +24,48 @@ pub struct PaginatedResponse<T> {
 }
 
 /// A subset of the Paperless-ngx UI settings response.
-///
-/// Only the `version` field is deserialized; unknown fields are ignored.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct UiSettings {
+    /// The authenticated user.
+    pub user: UiSettingsUser,
+    /// The settings object containing the server version.
+    pub settings: UiSettingsVersion,
+}
+
+/// User object from the UI settings response.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct UiSettingsUser {
+    /// The username.
+    pub username: String,
+    /// First name, if set.
+    #[serde(default)]
+    pub first_name: Option<String>,
+    /// Last name, if set.
+    #[serde(default)]
+    pub last_name: Option<String>,
+}
+
+impl UiSettingsUser {
+    /// Returns the display name: "First Last" if available, otherwise the
+    /// username.
+    #[must_use]
+    pub fn display_name(&self) -> String {
+        let first = self.first_name.as_deref().unwrap_or("").trim();
+        let last = self.last_name.as_deref().unwrap_or("").trim();
+        if first.is_empty() && last.is_empty() {
+            self.username.clone()
+        } else {
+            format!("{first} {last}").trim().to_string()
+        }
+    }
+}
+
+/// Inner settings object from the UI settings response.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct UiSettingsVersion {
     /// The running Paperless-ngx server version.
     pub version: String,
 }

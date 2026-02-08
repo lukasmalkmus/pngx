@@ -58,9 +58,18 @@ impl Client {
     ///
     /// Returns an error on network failure or authentication issues.
     pub fn server_version(&self) -> Result<String, ApiError> {
+        let settings = self.ui_settings()?;
+        Ok(settings.settings.version)
+    }
+
+    /// Fetches UI settings including user info and server version.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error on network failure or authentication issues.
+    pub fn ui_settings(&self) -> Result<UiSettings, ApiError> {
         let url = self.url("api/ui_settings/")?;
-        let settings: UiSettings = self.get(&url)?;
-        Ok(settings.version)
+        self.get(&url)
     }
 
     /// Fetches the first page of documents.
@@ -837,9 +846,11 @@ mod tests {
         let (server, client) = setup().await;
 
         let body = serde_json::json!({
-            "version": "2.14.7",
-            "display_name": "admin",
-            "extra_field": true
+            "user": {"id": 1, "username": "admin"},
+            "settings": {
+                "version": "2.14.7"
+            },
+            "permissions": []
         });
 
         Mock::given(method("GET"))

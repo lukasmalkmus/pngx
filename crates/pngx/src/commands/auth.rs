@@ -108,7 +108,10 @@ pub fn status(url_override: Option<&str>, token_override: Option<&str>) -> Resul
     }
 
     match try_verify_server(url_override, token_override) {
-        Ok(version) => println!("\nServer: connected (paperless-ngx {version})"),
+        Ok((user, version)) => {
+            println!("\nUser: {user}");
+            println!("Server: connected (paperless-ngx {version})");
+        }
         Err(err) => eprintln!("\nWarning: could not verify server: {err}"),
     }
 
@@ -118,13 +121,15 @@ pub fn status(url_override: Option<&str>, token_override: Option<&str>) -> Resul
 fn try_verify_server(
     url_override: Option<&str>,
     token_override: Option<&str>,
-) -> anyhow::Result<String> {
+) -> anyhow::Result<(String, String)> {
     let raw = RawConfig::load(url_override, token_override)?;
     let config = raw.validate()?;
     let client = Client::builder(config.url.as_str(), &config.token)
         .timeout(Duration::from_secs(config.timeout))
         .page_size(config.page_size)
         .build()?;
-    let version = client.server_version()?;
-    Ok(version)
+    let settings = client.ui_settings()?;
+    let user = settings.user.display_name();
+    let version = settings.settings.version;
+    Ok((user, version))
 }
