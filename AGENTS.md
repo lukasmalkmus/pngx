@@ -65,7 +65,7 @@ cargo doc --no-deps --all                       # Build docs
 
 ### MSRV
 
-Minimum supported Rust version is **1.85** (edition 2024).
+Minimum supported Rust version is **1.93** (edition 2024).
 
 ## Commit format
 
@@ -88,21 +88,25 @@ readme: add usage section
 
 ### pngx (CLI)
 
-- `clap` - argument parsing with derive macros
-- `figment` - layered configuration (TOML + env)
-- `comfy-table` - terminal table rendering
-- `owo-colors` - terminal colors
-- `serde` / `serde_json` / `toml` - serialization
-- `tracing` / `tracing-subscriber` - structured logging
-- `etcetera` - platform config paths
 - `anyhow` - application error handling
+- `clap` - argument parsing with derive macros
+- `comfy-table` - terminal table rendering
+- `etcetera` - platform config paths
+- `figment` - layered configuration (TOML + env)
+- `jiff` - date/time formatting
+- `open` - open documents in default application
+- `rpassword` - secure password input
+- `serde` / `serde_json` - serialization
+- `tracing` / `tracing-subscriber` - structured logging
+- `url` - URL parsing
 
 ### pngx-client (library)
 
-- `ureq` - synchronous HTTP client
-- `url` - URL parsing
+- `jiff` - date/time types with serde support
 - `serde` / `serde_json` - JSON serialization
 - `thiserror` - library error types
+- `ureq` - synchronous HTTP client
+- `url` - URL parsing
 
 ### Dev dependencies
 
