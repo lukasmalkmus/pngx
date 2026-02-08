@@ -63,13 +63,14 @@ claude plugin marketplace add lukasmalkmus/pngx
 claude plugin install pngx@pngx
 ```
 
-Once installed, invoke the skill:
+Once installed, the skill activates automatically when your prompt mentions
+Paperless-ngx documents:
 
 ```
-/paperless
+Find all invoices from January 2025 in Paperless
 ```
 
-The skill guides the agent through search, refinement, and document retrieval.
+You can also invoke it explicitly with `/paperless`.
 
 ## Usage
 
