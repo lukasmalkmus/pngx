@@ -56,11 +56,11 @@ with a `paperless` skill for document search workflows.
 ### Install the plugin
 
 ```sh
-# From the marketplace
-/plugin marketplace add lukasmalkmus/pngx
+# Add the pngx marketplace
+claude plugin marketplace add lukasmalkmus/pngx
 
-# Or install directly
-/plugin install pngx@pngx
+# Install the plugin
+claude plugin install pngx@pngx
 ```
 
 Once installed, invoke the skill:
