@@ -6,7 +6,7 @@ use url::Url;
 
 use crate::error::ApiError;
 use crate::types::{
-    Correspondent, Document, DocumentType, DocumentVersion, PaginatedResponse, Tag,
+    Correspondent, Document, DocumentType, DocumentVersion, PaginatedResponse, Tag, UiSettings,
 };
 
 const DEFAULT_PAGE_SIZE: u32 = 100;
@@ -50,6 +50,17 @@ impl Client {
             timeout: None,
             page_size: DEFAULT_PAGE_SIZE,
         }
+    }
+
+    /// Returns the running Paperless-ngx server version.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error on network failure or authentication issues.
+    pub fn server_version(&self) -> Result<String, ApiError> {
+        let url = self.url("api/ui_settings/")?;
+        let settings: UiSettings = self.get(&url)?;
+        Ok(settings.version)
     }
 
     /// Fetches the first page of documents.
@@ -149,6 +160,43 @@ impl Client {
         url.query_pairs_mut()
             .append_pair("page_size", &self.page_size.to_string());
         self.get(&url)
+    }
+
+    /// Fetches the first page of inbox documents.
+    ///
+    /// Inbox documents are those tagged with an inbox tag
+    /// (`is_in_inbox=true`).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error on network failure or authentication issues.
+    pub fn inbox_documents(&self) -> Result<PaginatedResponse<Document>, ApiError> {
+        let mut url = self.url("api/documents/")?;
+        url.query_pairs_mut()
+            .append_pair("is_in_inbox", "true")
+            .append_pair("fields", DOCUMENT_LIST_FIELDS)
+            .append_pair("page_size", &self.page_size.to_string());
+        self.get(&url)
+    }
+
+    /// Fetches inbox documents across pages up to `limit`.
+    ///
+    /// Pass `None` to fetch all inbox documents. Returns the collected items
+    /// and the total count reported by the server.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error on network failure or authentication issues.
+    pub fn collect_inbox_documents(
+        &self,
+        limit: Option<usize>,
+    ) -> Result<(Vec<Document>, u64), ApiError> {
+        let mut url = self.url("api/documents/")?;
+        url.query_pairs_mut()
+            .append_pair("is_in_inbox", "true")
+            .append_pair("fields", DOCUMENT_LIST_FIELDS)
+            .append_pair("page_size", &self.page_size.to_string());
+        self.paginate(&url, limit)
     }
 
     /// Searches documents matching `query`, returning the first page.
@@ -595,6 +643,49 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_inbox_documents() {
+        let (server, client) = setup().await;
+
+        let body = serde_json::json!({
+            "count": 1,
+            "next": null,
+            "previous": null,
+            "results": [{
+                "id": 7,
+                "title": "Unprocessed Invoice",
+                "content": null,
+                "correspondent": 2,
+                "document_type": 3,
+                "tags": [1],
+                "created": "2024-06-15",
+                "added": "2024-06-15T12:00:00Z",
+                "archive_serial_number": null,
+                "original_file_name": "scan.pdf"
+            }]
+        });
+
+        Mock::given(method("GET"))
+            .and(path("/api/documents/"))
+            .and(header("Accept", "application/json; version=9"))
+            .and(header("Authorization", "Token test-token"))
+            .and(query_param("is_in_inbox", "true"))
+            .and(query_param("fields", DOCUMENT_LIST_FIELDS))
+            .and(query_param("page_size", "100"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(&body))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let result = client
+            .inbox_documents()
+            .expect("inbox documents request should succeed");
+        assert_eq!(result.count, 1);
+        assert_eq!(result.results.len(), 1);
+        assert_eq!(result.results[0].title, "Unprocessed Invoice");
+        assert_eq!(result.results[0].id, 7);
+    }
+
+    #[tokio::test]
     async fn test_search() {
         let (server, client) = setup().await;
 
@@ -739,5 +830,46 @@ mod tests {
     fn test_invalid_base_url() {
         let err = Client::new("not a url", "token").expect_err("should fail with invalid URL");
         assert!(matches!(err, ApiError::InvalidUrl(_)));
+    }
+
+    #[tokio::test]
+    async fn test_server_version() {
+        let (server, client) = setup().await;
+
+        let body = serde_json::json!({
+            "version": "2.14.7",
+            "display_name": "admin",
+            "extra_field": true
+        });
+
+        Mock::given(method("GET"))
+            .and(path("/api/ui_settings/"))
+            .and(header("Authorization", "Token test-token"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(&body))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let version = client
+            .server_version()
+            .expect("server_version should succeed");
+        assert_eq!(version, "2.14.7");
+    }
+
+    #[tokio::test]
+    async fn test_server_version_unauthorized() {
+        let (server, client) = setup().await;
+
+        Mock::given(method("GET"))
+            .and(path("/api/ui_settings/"))
+            .respond_with(ResponseTemplate::new(401))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let err = client
+            .server_version()
+            .expect_err("should return unauthorized error");
+        assert!(matches!(err, ApiError::Unauthorized));
     }
 }

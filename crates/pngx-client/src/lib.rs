@@ -23,4 +23,6 @@ pub use jiff;
 
 pub use client::{Client, ClientBuilder};
 pub use error::ApiError;
-pub use types::{Correspondent, Document, DocumentType, DocumentVersion, PaginatedResponse, Tag};
+pub use types::{
+    Correspondent, Document, DocumentType, DocumentVersion, PaginatedResponse, Tag, UiSettings,
+};

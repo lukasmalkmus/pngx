@@ -1,9 +1,11 @@
 use std::fs;
 use std::io::{self, BufRead, IsTerminal, Write};
+use std::time::Duration;
 
 use anyhow::{Context, Result};
+use pngx_client::Client;
 
-use crate::config::{config_dir, config_file_path};
+use crate::config::{RawConfig, config_dir, config_file_path};
 
 pub fn login(url: Option<&str>, token: Option<&str>) -> Result<()> {
     let (url, token) = match (url, token) {
@@ -84,7 +86,7 @@ pub fn logout() -> Result<()> {
     Ok(())
 }
 
-pub fn status() -> Result<()> {
+pub fn status(url_override: Option<&str>, token_override: Option<&str>) -> Result<()> {
     let path = config_file_path();
     if !path.exists() {
         println!("Not configured. Run `pngx auth login` to set up.");
@@ -105,5 +107,24 @@ pub fn status() -> Result<()> {
         }
     }
 
+    match try_verify_server(url_override, token_override) {
+        Ok(version) => println!("\nServer: connected (paperless-ngx {version})"),
+        Err(err) => eprintln!("\nWarning: could not verify server: {err}"),
+    }
+
     Ok(())
+}
+
+fn try_verify_server(
+    url_override: Option<&str>,
+    token_override: Option<&str>,
+) -> anyhow::Result<String> {
+    let raw = RawConfig::load(url_override, token_override)?;
+    let config = raw.validate()?;
+    let client = Client::builder(config.url.as_str(), &config.token)
+        .timeout(Duration::from_secs(config.timeout))
+        .page_size(config.page_size)
+        .build()?;
+    let version = client.server_version()?;
+    Ok(version)
 }

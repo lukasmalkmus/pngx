@@ -75,14 +75,15 @@ You can also invoke it explicitly with `/paperless`.
 ## Usage
 
 ```
-pngx [--url URL] [--token TOKEN] [-o FORMAT] [-v...] COMMAND
+pngx [--url URL] [--token TOKEN] [-v...] COMMAND
 ```
 
 | Command | Description |
 |---------|-------------|
 | `auth login` | Save server URL and API token |
 | `auth logout` | Remove saved credentials |
-| `auth status` | Show current configuration |
+| `auth status` | Show config and verify connection |
+| `inbox` | List inbox documents |
 | `search QUERY` | Search documents |
 | `documents list` | List all documents |
 | `documents get ID...` | View document details |
@@ -92,13 +93,14 @@ pngx [--url URL] [--token TOKEN] [-o FORMAT] [-v...] COMMAND
 | `tags` | List all tags |
 | `correspondents` | List all correspondents |
 | `document-types` | List all document types |
-| `version` | Show version information |
+| `version` | Show CLI and server version |
 
-`search` and `documents list` default to 25 results. Use `-n` to limit or
+`inbox`, `search`, and `documents list` default to 25 results. Use `-n` to limit or
 `--all` to fetch everything. Metadata commands always show all items.
 
-Use `--url` and `--token` to override credentials per-call, or `-o json` for
-structured output suitable for piping.
+Use `--url` and `--token` to override credentials per-call. Commands that
+produce formatted output accept `-o json` for structured output suitable for
+piping.
 
 ## Configuration
 

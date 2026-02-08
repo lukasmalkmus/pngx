@@ -22,36 +22,38 @@ CLI-specific dependencies.
 ## CLI shape
 
 ```
-pngx [--url URL] [--token TOKEN] [-o FORMAT] [-v...] COMMAND
+pngx [--url URL] [--token TOKEN] [-v...] COMMAND
 
 ├─ auth login [--url URL] [--token TOKEN]
 ├─ auth logout
 ├─ auth status
 │
-├─ search QUERY [-n LIMIT] [--all]
+├─ inbox [-n LIMIT] [--all] [-o FORMAT]
+├─ search QUERY [-n LIMIT] [--all] [-o FORMAT]
 │
-├─ documents list [-n LIMIT] [--all]
-├─ documents get ID...
+├─ documents list [-n LIMIT] [--all] [-o FORMAT]
+├─ documents get ID... [-o FORMAT]
 ├─ documents content ID...
 ├─ documents open ID...
 ├─ documents download ID... [--original] [--file PATH]
 │
-├─ tags
-├─ correspondents
-├─ document-types
+├─ tags [-o FORMAT]
+├─ correspondents [-o FORMAT]
+├─ document-types [-o FORMAT]
 └─ version
 ```
 
-**Pagination:** Only `search` and `documents list` accept `--limit`/`--all`.
+**Pagination:** Only `inbox`, `search`, and `documents list` accept `--limit`/`--all`.
 Metadata commands (`tags`, `correspondents`, `document-types`) always show all
 items.
 
 **Multi-ID:** `get`, `content`, `open`, `download` accept one or more IDs.
 `--file` is only valid with a single ID.
 
-**Output:** `-o markdown` (default) or `-o json`. Paginated commands wrap JSON
-in an envelope (`results`, `total_count`, `has_more`). Metadata and multi-ID
-commands return plain JSON arrays.
+**Output:** `-o markdown` (default) or `-o json`, available on commands that
+produce formatted output. Paginated commands wrap JSON in an envelope
+(`results`, `total_count`, `has_more`). Metadata and multi-ID commands return
+plain JSON arrays.
 
 ## Build commands
 

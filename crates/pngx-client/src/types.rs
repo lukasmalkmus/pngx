@@ -23,6 +23,16 @@ pub struct PaginatedResponse<T> {
     pub results: Vec<T>,
 }
 
+/// A subset of the Paperless-ngx UI settings response.
+///
+/// Only the `version` field is deserialized; unknown fields are ignored.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct UiSettings {
+    /// The running Paperless-ngx server version.
+    pub version: String,
+}
+
 /// A document stored in Paperless-ngx.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]

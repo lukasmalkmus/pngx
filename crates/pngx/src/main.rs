@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 use std::time::Duration;
 
-use clap::{ArgAction, Parser, Subcommand};
+use clap::{ArgAction, Args, Parser, Subcommand};
 use pngx_client::ApiError;
 use tracing_subscriber::EnvFilter;
 
@@ -22,8 +22,9 @@ use output::OutputFormat;
         transforms physical documents into a searchable online archive.",
     after_long_help = "GETTING STARTED:\n  \
         pngx auth login              Save server URL and API token\n  \
-        pngx auth status             Verify connection\n\n\
+        pngx auth status             Show config and verify connection\n\n\
         COMMON WORKFLOWS:\n  \
+        pngx inbox                   List unprocessed inbox documents\n  \
         pngx search \"invoice 2024\"   Find documents matching a query\n  \
         pngx documents get 42 43     View document details\n  \
         pngx documents content 42    Read document text\n  \
@@ -42,16 +43,19 @@ struct Cli {
     #[arg(long, global = true)]
     token: Option<String>,
 
-    /// Output format
-    #[arg(short, long, global = true, value_enum)]
-    output: Option<OutputFormat>,
-
     /// Increase verbosity (-v, -vv, -vvv)
     #[arg(short, long, global = true, action = ArgAction::Count)]
     verbose: u8,
 
     #[command(subcommand)]
     command: Command,
+}
+
+#[derive(Args)]
+struct OutputArgs {
+    /// Output format
+    #[arg(short, long, value_enum)]
+    output: Option<OutputFormat>,
 }
 
 #[derive(Subcommand)]
@@ -67,6 +71,17 @@ enum Command {
         #[command(subcommand)]
         action: DocumentCommand,
     },
+    /// List inbox documents
+    Inbox {
+        /// Maximum number of results (0 for unlimited)
+        #[arg(short = 'n', long, default_value = "25")]
+        limit: usize,
+        /// Fetch all results
+        #[arg(short, long)]
+        all: bool,
+        #[command(flatten)]
+        output: OutputArgs,
+    },
     /// Search documents
     Search {
         /// Search query
@@ -77,13 +92,24 @@ enum Command {
         /// Fetch all results
         #[arg(short, long)]
         all: bool,
+        #[command(flatten)]
+        output: OutputArgs,
     },
     /// List tags
-    Tags,
+    Tags {
+        #[command(flatten)]
+        output: OutputArgs,
+    },
     /// List correspondents
-    Correspondents,
+    Correspondents {
+        #[command(flatten)]
+        output: OutputArgs,
+    },
     /// List document types
-    DocumentTypes,
+    DocumentTypes {
+        #[command(flatten)]
+        output: OutputArgs,
+    },
     /// Show version information
     Version,
 }
@@ -115,12 +141,16 @@ enum DocumentCommand {
         /// Fetch all results
         #[arg(short, long)]
         all: bool,
+        #[command(flatten)]
+        output: OutputArgs,
     },
     /// Get documents by ID
     Get {
         /// Document IDs
         #[arg(required = true)]
         ids: Vec<u64>,
+        #[command(flatten)]
+        output: OutputArgs,
     },
     /// Open documents in the Paperless-ngx web UI
     Open {
@@ -171,16 +201,18 @@ fn resolve_limit(limit: usize, all: bool) -> Option<usize> {
 fn build_client(
     url: Option<&str>,
     token: Option<&str>,
-    output: Option<OutputFormat>,
-) -> anyhow::Result<(pngx_client::Client, OutputFormat, config::ValidConfig)> {
+) -> anyhow::Result<(pngx_client::Client, config::ValidConfig)> {
     let raw = RawConfig::load(url, token)?;
-    let format = output.unwrap_or(raw.output_format);
     let config = raw.validate()?;
     let client = pngx_client::Client::builder(config.url.as_str(), &config.token)
         .timeout(Duration::from_secs(config.timeout))
         .page_size(config.page_size)
         .build()?;
-    Ok((client, format, config))
+    Ok((client, config))
+}
+
+fn resolve_output(output: &OutputArgs, config: &config::ValidConfig) -> OutputFormat {
+    output.output.unwrap_or(config.output_format)
 }
 
 fn run() -> anyhow::Result<()> {
@@ -193,17 +225,22 @@ fn run() -> anyhow::Result<()> {
                 commands::auth::login(url.as_deref(), token.as_deref())?;
             }
             AuthCommand::Logout => commands::auth::logout()?,
-            AuthCommand::Status => commands::auth::status()?,
+            AuthCommand::Status => {
+                commands::auth::status(cli.url.as_deref(), cli.token.as_deref())?;
+            }
         },
-        Command::Version => commands::version::print(),
+        Command::Version => {
+            commands::version::print(cli.url.as_deref(), cli.token.as_deref())?;
+        }
         Command::Documents { action } => {
-            let (client, format, config) =
-                build_client(cli.url.as_deref(), cli.token.as_deref(), cli.output)?;
+            let (client, config) = build_client(cli.url.as_deref(), cli.token.as_deref())?;
             match action {
-                DocumentCommand::List { limit, all } => {
+                DocumentCommand::List { limit, all, output } => {
+                    let format = resolve_output(&output, &config);
                     commands::documents::list(&client, format, resolve_limit(limit, all))?;
                 }
-                DocumentCommand::Get { ids } => {
+                DocumentCommand::Get { ids, output } => {
+                    let format = resolve_output(&output, &config);
                     commands::documents::get(&client, &ids, format)?;
                 }
                 DocumentCommand::Open { ids } => {
@@ -221,24 +258,34 @@ fn run() -> anyhow::Result<()> {
                 }
             }
         }
-        Command::Search { query, limit, all } => {
-            let (client, format, _) =
-                build_client(cli.url.as_deref(), cli.token.as_deref(), cli.output)?;
+        Command::Inbox { limit, all, output } => {
+            let (client, config) = build_client(cli.url.as_deref(), cli.token.as_deref())?;
+            let format = resolve_output(&output, &config);
+            commands::inbox::list(&client, format, resolve_limit(limit, all))?;
+        }
+        Command::Search {
+            query,
+            limit,
+            all,
+            output,
+        } => {
+            let (client, config) = build_client(cli.url.as_deref(), cli.token.as_deref())?;
+            let format = resolve_output(&output, &config);
             commands::search::search(&client, &query, format, resolve_limit(limit, all))?;
         }
-        Command::Tags => {
-            let (client, format, _) =
-                build_client(cli.url.as_deref(), cli.token.as_deref(), cli.output)?;
+        Command::Tags { output } => {
+            let (client, config) = build_client(cli.url.as_deref(), cli.token.as_deref())?;
+            let format = resolve_output(&output, &config);
             commands::tags::list(&client, format)?;
         }
-        Command::Correspondents => {
-            let (client, format, _) =
-                build_client(cli.url.as_deref(), cli.token.as_deref(), cli.output)?;
+        Command::Correspondents { output } => {
+            let (client, config) = build_client(cli.url.as_deref(), cli.token.as_deref())?;
+            let format = resolve_output(&output, &config);
             commands::correspondents::list(&client, format)?;
         }
-        Command::DocumentTypes => {
-            let (client, format, _) =
-                build_client(cli.url.as_deref(), cli.token.as_deref(), cli.output)?;
+        Command::DocumentTypes { output } => {
+            let (client, config) = build_client(cli.url.as_deref(), cli.token.as_deref())?;
+            let format = resolve_output(&output, &config);
             commands::document_types::list(&client, format)?;
         }
     }
