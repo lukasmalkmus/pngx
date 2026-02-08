@@ -113,6 +113,48 @@ readme: add usage section
 - `wiremock` - HTTP mocking for client tests
 - `tokio` - async runtime for wiremock
 
+## Changelog
+
+The project maintains a `CHANGELOG.md` following
+[Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/) format.
+
+### Format
+
+Entries go under the `[Unreleased]` heading grouped by category. At release
+time, unreleased entries move into a versioned section. Use only these
+categories (omit empty ones):
+
+- **Added** - new commands, flags, or features
+- **Changed** - changes to existing behavior or output
+- **Deprecated** - features marked for future removal
+- **Removed** - removed commands, flags, or features
+- **Fixed** - bug fixes
+- **Security** - vulnerability fixes
+
+### Writing entries
+
+- One line per change, concise and descriptive
+- Write from the user's perspective, not the developer's
+- Use imperative mood (Add, Fix, Remove)
+
+### What to document
+
+- New commands, flags, or features
+- Changes to existing command behavior or output
+- Breaking changes (flag renames, removed commands, config format changes)
+- Bug fixes that affected users
+- Security fixes
+- Dependency upgrades that change behavior or bump the MSRV
+
+### What NOT to document
+
+- Internal refactors with no user-visible effect
+- Code style or formatting changes
+- CI/CD pipeline tweaks
+- Dependency bumps that don't affect behavior or MSRV
+- Documentation-only changes
+- Test-only changes
+
 ## Skills
 
 The `skills/paperless/` directory contains an agent skill for searching
