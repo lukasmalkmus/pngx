@@ -40,7 +40,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.target }}
-          path: ${{ steps.build.outputs.archive }}
+          path: ${{ steps.build.outputs.archive }}.*
           if-no-files-found: error
 
   release:
