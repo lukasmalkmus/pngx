@@ -1,7 +1,7 @@
 {
   "description": "Nudge agents to use the paperless skill for pngx commands",
   "hooks": {
-    "PostToolUse": [
+    "PreToolUse": [
       {
         "matcher": "Bash",
         "hooks": [
