@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pngx search:*)",
+      "Bash(pngx inbox:*)",
+      "Bash(pngx documents:*)",
+      "Bash(pngx tags:*)",
+      "Bash(pngx correspondents:*)",
+      "Bash(pngx document-types:*)",
+      "Bash(pngx version:*)",
+      "Bash(pngx auth status:*)"
+    ],
+    "ask": [
+      "Bash(pngx auth login:*)",
+      "Bash(pngx auth logout:*)"
+    ]
+  }
+}

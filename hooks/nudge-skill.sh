@@ -2,10 +2,7 @@
 # Nudge the agent to use the "paperless" skill when running pngx commands
 # directly, instead of invoking them without the skill's guidance.
 #
-# Uses the PreToolUse updatedInput workaround: appends a system-reminder to the
-# bash command so the nudge appears in the tool output, which the agent sees.
-# PostToolUse additionalContext is documented but not implemented for built-in
-# tools (https://github.com/anthropics/claude-code/issues/18427).
+# Uses PostToolUse additionalContext to inject a nudge after the command runs.
 
 input=$(cat)
 
@@ -22,11 +19,9 @@ touch "$marker"
 
 nudge='<system-reminder>The "paperless" skill provides guided pngx workflows. Invoke it with /paperless or the Skill tool.</system-reminder>'
 
-jq -n --arg cmd "$command" --arg nudge "$nudge" '{
+jq -n --arg nudge "$nudge" '{
   hookSpecificOutput: {
-    hookEventName: "PreToolUse",
-    updatedInput: {
-      command: ($cmd + " && echo \u0027" + $nudge + "\u0027")
-    }
+    hookEventName: "PostToolUse",
+    additionalContext: $nudge
   }
 }'

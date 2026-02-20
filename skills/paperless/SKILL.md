@@ -10,6 +10,7 @@ description: |
 user-invocable: true
 argument-hint: <search-query>
 allowed-tools: Bash(pngx *)
+memory: user
 ---
 
 # Paperless Document Management
