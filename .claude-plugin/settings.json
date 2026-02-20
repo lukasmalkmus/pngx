@@ -8,7 +8,8 @@
       "Bash(pngx correspondents:*)",
       "Bash(pngx document-types:*)",
       "Bash(pngx version:*)",
-      "Bash(pngx auth status:*)"
+      "Bash(pngx auth status:*)",
+      "Skill(pngx:paperless)"
     ],
     "ask": [
       "Bash(pngx auth login:*)",
