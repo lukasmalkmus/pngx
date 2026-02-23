@@ -13,7 +13,8 @@ if [[ -z "$command" ]] || ! echo "$command" | grep -q 'pngx'; then
 fi
 
 # Only nudge once per session to avoid spamming context.
-marker="${TMPDIR:-/tmp}/.pngx-skill-nudge-${PPID}"
+session_id=$(echo "$input" | jq -r '.session_id // empty' 2>/dev/null)
+marker="${TMPDIR:-/tmp}/.pngx-skill-nudge-${session_id:-$PPID}"
 [ -f "$marker" ] && exit 0
 touch "$marker"
 
