@@ -8,6 +8,21 @@ use url::Url;
 
 use crate::output::OutputFormat;
 
+/// Configuration validation error. Uses a distinct exit code (5) so agents
+/// can detect missing config and suggest running `pngx auth login`.
+#[derive(Debug, thiserror::Error)]
+pub enum ConfigError {
+    #[error("server URL not configured. Run `pngx auth login` or set --url")]
+    MissingUrl,
+    #[error("API token not configured. Run `pngx auth login` or set --token")]
+    MissingToken,
+    #[error("invalid server URL '{url}': {source}")]
+    InvalidUrl {
+        url: String,
+        source: url::ParseError,
+    },
+}
+
 #[derive(Deserialize, Serialize)]
 pub struct RawConfig {
     #[serde(default)]
@@ -76,18 +91,18 @@ impl RawConfig {
         Ok(config)
     }
 
-    pub fn validate(self) -> anyhow::Result<ValidConfig> {
-        anyhow::ensure!(
-            !self.url.is_empty(),
-            "server URL not configured. Run `pngx auth login` or set --url"
-        );
-        anyhow::ensure!(
-            !self.token.is_empty(),
-            "API token not configured. Run `pngx auth login` or set --token"
-        );
+    pub fn validate(self) -> Result<ValidConfig, ConfigError> {
+        if self.url.is_empty() {
+            return Err(ConfigError::MissingUrl);
+        }
+        if self.token.is_empty() {
+            return Err(ConfigError::MissingToken);
+        }
 
-        let url = Url::parse(&self.url)
-            .map_err(|e| anyhow::anyhow!("invalid server URL '{}': {e}", self.url))?;
+        let url = Url::parse(&self.url).map_err(|e| ConfigError::InvalidUrl {
+            url: self.url.clone(),
+            source: e,
+        })?;
 
         Ok(ValidConfig {
             url,

@@ -11,7 +11,7 @@ use clap::{ArgAction, Args, Parser, Subcommand};
 use pngx_client::ApiError;
 use tracing_subscriber::EnvFilter;
 
-use config::RawConfig;
+use config::{ConfigError, RawConfig};
 use output::OutputFormat;
 
 #[derive(Parser)]
@@ -32,7 +32,14 @@ use output::OutputFormat;
         pngx tags                    List all tags\n\n\
         OUTPUT:\n  \
         Default output is markdown tables. Use -o json for structured output.\n  \
-        Use -F to select specific fields (e.g., -F id,title).",
+        Use -F to select specific fields (e.g., -F id,title).\n\n\
+        EXIT CODES:\n  \
+        0  Success\n  \
+        1  Server or deserialization error\n  \
+        2  Usage error or unauthorized\n  \
+        3  Not found\n  \
+        4  I/O, network, timeout, or URL error\n  \
+        5  Configuration error",
     version
 )]
 struct Cli {
@@ -47,6 +54,10 @@ struct Cli {
     /// Increase verbosity (-v, -vv, -vvv)
     #[arg(short, long, global = true, action = ArgAction::Count)]
     verbose: u8,
+
+    /// Emit errors as JSON to stderr
+    #[arg(long, global = true, env = "PNGX_JSON_ERRORS")]
+    json_errors: bool,
 
     #[command(subcommand)]
     command: Command,
@@ -233,8 +244,7 @@ fn resolve_fields<T: output::FieldNames>(
     }
 }
 
-fn run() -> anyhow::Result<()> {
-    let cli = Cli::parse();
+fn run(cli: Cli) -> anyhow::Result<()> {
     init_tracing(cli.verbose);
 
     match cli.command {
@@ -329,6 +339,29 @@ fn run() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Map an error to a machine-readable error code string.
+fn error_code(err: &anyhow::Error) -> &'static str {
+    if let Some(api_err) = err.downcast_ref::<ApiError>() {
+        match api_err {
+            ApiError::Unauthorized => "unauthorized",
+            ApiError::NotFound => "not_found",
+            ApiError::InvalidUrl(_) => "invalid_url",
+            ApiError::Io(_) => "io_error",
+            ApiError::Network(_) => "network_error",
+            ApiError::Timeout => "timeout",
+            ApiError::SchemeMismatch { .. } => "scheme_mismatch",
+            ApiError::Server { .. } => "server_error",
+            ApiError::Deserialization(_) => "deserialization_error",
+        }
+    } else if err.downcast_ref::<ConfigError>().is_some() {
+        "config_error"
+    } else if err.downcast_ref::<output::FieldFilterError>().is_some() {
+        "usage_error"
+    } else {
+        "internal_error"
+    }
+}
+
 fn exit_code_for_error(err: &anyhow::Error) -> ExitCode {
     if let Some(api_err) = err.downcast_ref::<ApiError>() {
         match api_err {
@@ -341,17 +374,32 @@ fn exit_code_for_error(err: &anyhow::Error) -> ExitCode {
             | ApiError::SchemeMismatch { .. } => ExitCode::from(4),
             _ => ExitCode::from(1),
         }
+    } else if err.downcast_ref::<ConfigError>().is_some() {
+        ExitCode::from(5)
+    } else if err.downcast_ref::<output::FieldFilterError>().is_some() {
+        ExitCode::from(2)
     } else {
         ExitCode::from(1)
     }
 }
 
 fn main() -> ExitCode {
-    match run() {
+    let cli = Cli::parse();
+    let json_errors = cli.json_errors;
+
+    match run(cli) {
         Ok(()) => ExitCode::SUCCESS,
         Err(err) => {
             let code = exit_code_for_error(&err);
-            eprintln!("Error: {err:#}");
+            if json_errors {
+                let json_err = serde_json::json!({
+                    "error": format!("{err:#}"),
+                    "code": error_code(&err),
+                });
+                eprintln!("{json_err}");
+            } else {
+                eprintln!("Error: {err:#}");
+            }
             code
         }
     }
