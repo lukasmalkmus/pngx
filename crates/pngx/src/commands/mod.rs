@@ -3,6 +3,7 @@ pub mod correspondents;
 pub mod document_types;
 pub mod documents;
 pub mod inbox;
+pub mod mcp;
 pub mod search;
 pub mod tags;
 pub mod version;

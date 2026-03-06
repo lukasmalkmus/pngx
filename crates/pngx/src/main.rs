@@ -126,8 +126,19 @@ enum Command {
         #[command(flatten)]
         output: OutputArgs,
     },
+    /// MCP (Model Context Protocol) server
+    Mcp {
+        #[command(subcommand)]
+        action: McpCommand,
+    },
     /// Show version information
     Version,
+}
+
+#[derive(Subcommand)]
+enum McpCommand {
+    /// Start the MCP server over stdio
+    Serve,
 }
 
 #[derive(Subcommand)]
@@ -334,6 +345,15 @@ fn run(cli: Cli) -> anyhow::Result<()> {
             let fields = resolve_fields::<pngx_client::DocumentType>(&output)?;
             commands::document_types::list(&client, format, fields.as_ref())?;
         }
+        Command::Mcp { action } => match action {
+            McpCommand::Serve => {
+                let (client, _config) = build_client(cli.url.as_deref(), cli.token.as_deref())?;
+                tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()?
+                    .block_on(commands::mcp::serve(client))?;
+            }
+        },
     }
 
     Ok(())
