@@ -47,6 +47,9 @@ pub fn get(
                 };
                 println!("{}", serde_json::to_string_pretty(&output)?);
             }
+            OutputFormat::Ndjson => {
+                println!("{}", format.format_list(&resolved, fields)?);
+            }
             OutputFormat::Markdown => {
                 for (i, doc) in resolved.iter().enumerate() {
                     if i > 0 {

@@ -14,6 +14,7 @@ pub enum OutputFormat {
     #[default]
     Markdown,
     Json,
+    Ndjson,
 }
 
 impl OutputFormat {
@@ -30,6 +31,18 @@ impl OutputFormat {
                 } else {
                     serde_json::to_string_pretty(&value)
                 }
+            }
+            Self::Ndjson => {
+                let mut lines = Vec::new();
+                for item in items {
+                    let value = serde_json::to_value(item)?;
+                    let line = match fields {
+                        Some(f) => f.filter_json_object(value),
+                        None => value,
+                    };
+                    lines.push(serde_json::to_string(&line)?);
+                }
+                Ok(lines.join("\n"))
             }
             Self::Markdown => {
                 let all_headers = T::headers();
@@ -67,6 +80,14 @@ impl OutputFormat {
                 } else {
                     serde_json::to_string_pretty(&value)
                 }
+            }
+            Self::Ndjson => {
+                let value = serde_json::to_value(item)?;
+                let line = match fields {
+                    Some(f) => f.filter_json_object(value),
+                    None => value,
+                };
+                serde_json::to_string(&line)
             }
             Self::Markdown => {
                 let mut table = new_markdown_table(&["Field", "Value"]);
@@ -167,7 +188,7 @@ impl FieldFilter {
 
     /// Filter a JSON object, keeping only the requested keys.
     /// Renames mapped keys back to user-facing names.
-    fn filter_json_object(&self, value: serde_json::Value) -> serde_json::Value {
+    pub fn filter_json_object(&self, value: serde_json::Value) -> serde_json::Value {
         match value {
             serde_json::Value::Object(map) => {
                 let mut filtered = serde_json::Map::new();

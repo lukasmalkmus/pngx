@@ -15,21 +15,28 @@ pub fn print_results<T: Tabular + serde::Serialize>(
     total: u64,
     fields: Option<&FieldFilter>,
 ) -> anyhow::Result<()> {
-    if matches!(format, OutputFormat::Json) {
-        let value = serde_json::to_value(items)?;
-        let results = match fields {
-            Some(f) => f.filter_json_array(value),
-            None => value,
-        };
-        let wrapper = serde_json::json!({
-            "results": results,
-            "total_count": total,
-            "showing": items.len(),
-            "has_more": (items.len() as u64) < total,
-        });
-        println!("{}", serde_json::to_string_pretty(&wrapper)?);
-    } else {
-        println!("{}", format.format_list(items, fields)?);
+    match format {
+        OutputFormat::Json => {
+            let value = serde_json::to_value(items)?;
+            let results = match fields {
+                Some(f) => f.filter_json_array(value),
+                None => value,
+            };
+            let wrapper = serde_json::json!({
+                "results": results,
+                "total_count": total,
+                "showing": items.len(),
+                "has_more": (items.len() as u64) < total,
+            });
+            println!("{}", serde_json::to_string_pretty(&wrapper)?);
+        }
+        OutputFormat::Ndjson => {
+            print_ndjson_meta(items.len(), total);
+            print_ndjson_items(items, fields)?;
+        }
+        OutputFormat::Markdown => {
+            println!("{}", format.format_list(items, fields)?);
+        }
     }
     if (items.len() as u64) < total {
         eprintln!(
@@ -55,9 +62,37 @@ pub fn print_all<T: Tabular + serde::Serialize>(
             };
             println!("{}", serde_json::to_string_pretty(&output)?);
         }
+        OutputFormat::Ndjson => {
+            print_ndjson_items(items, fields)?;
+        }
         OutputFormat::Markdown => {
             println!("{}", format.format_list(items, fields)?);
         }
+    }
+    Ok(())
+}
+
+fn print_ndjson_meta(showing: usize, total: u64) {
+    let meta = serde_json::json!({
+        "_meta": true,
+        "total_count": total,
+        "showing": showing,
+        "has_more": (showing as u64) < total,
+    });
+    println!("{meta}");
+}
+
+fn print_ndjson_items<T: serde::Serialize>(
+    items: &[T],
+    fields: Option<&FieldFilter>,
+) -> anyhow::Result<()> {
+    for item in items {
+        let value = serde_json::to_value(item)?;
+        let line = match fields {
+            Some(f) => f.filter_json_object(value),
+            None => value,
+        };
+        println!("{}", serde_json::to_string(&line)?);
     }
     Ok(())
 }
