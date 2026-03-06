@@ -12,8 +12,11 @@ operators and AI agents.
 - Search and browse documents, tags, correspondents, and document types
 - View, download, and open documents by ID
 - Read document content as plain text
-- Output as markdown tables or JSON
-- Agent-friendly: structured output, predictable commands, Claude Code plugin
+- Output as markdown tables, JSON, or NDJSON (streamable)
+- Field filtering (`-F id,title`) to reduce output size
+- MCP server (`pngx mcp serve`) for tool-calling agents
+- Structured JSON errors (`--json-errors`) with machine-readable codes
+- Agent-friendly: predictable commands, distinct exit codes, Claude Code plugin
 
 ## Installation
 
@@ -93,14 +96,49 @@ pngx [--url URL] [--token TOKEN] [-v...] COMMAND
 | `tags` | List all tags |
 | `correspondents` | List all correspondents |
 | `document-types` | List all document types |
+| `mcp serve` | Start MCP server over stdio |
 | `version` | Show CLI and server version |
 
-`inbox`, `search`, and `documents list` default to 25 results. Use `-n` to limit or
-`--all` to fetch everything. Metadata commands always show all items.
+`inbox`, `search`, and `documents list` default to 25 results. Use `-n` to limit,
+`-n 0` for unlimited, or `--all` to fetch everything. Metadata commands always
+show all items.
 
 Use `--url` and `--token` to override credentials per-call. Commands that
-produce formatted output accept `-o json` for structured output suitable for
-piping.
+produce formatted output accept `-o markdown` (default), `-o json`, or `-o ndjson`.
+Use `-F` / `--fields` to select specific fields (e.g., `-F id,title`).
+
+Use `--json-errors` (or `PNGX_JSON_ERRORS=1`) to get structured error output
+on stderr with machine-readable error codes.
+
+### MCP server
+
+For tool-calling agents, start the MCP server:
+
+```json
+{
+  "mcpServers": {
+    "pngx": {
+      "command": "pngx",
+      "args": ["mcp", "serve"],
+      "env": {
+        "PNGX_URL": "https://paperless.example.com",
+        "PNGX_TOKEN": "your-api-token"
+      }
+    }
+  }
+}
+```
+
+### Exit codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | Success |
+| 1 | Server or deserialization error |
+| 2 | Usage error or unauthorized |
+| 3 | Not found |
+| 4 | I/O, network, timeout, or URL error |
+| 5 | Configuration error |
 
 ## Configuration
 

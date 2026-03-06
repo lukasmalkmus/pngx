@@ -22,24 +22,26 @@ CLI-specific dependencies.
 ## CLI shape
 
 ```
-pngx [--url URL] [--token TOKEN] [-v...] COMMAND
+pngx [--url URL] [--token TOKEN] [--json-errors] [-v...] COMMAND
 
 ├─ auth login [--url URL] [--token TOKEN]
 ├─ auth logout
 ├─ auth status
 │
-├─ inbox [-n LIMIT] [--all] [-o FORMAT]
-├─ search QUERY [-n LIMIT] [--all] [-o FORMAT]
+├─ inbox [-n LIMIT] [--all] [-o FORMAT] [-F FIELDS]
+├─ search QUERY [-n LIMIT] [--all] [-o FORMAT] [-F FIELDS]
 │
-├─ documents list [-n LIMIT] [--all] [-o FORMAT]
-├─ documents get ID... [-o FORMAT]
+├─ documents list [-n LIMIT] [--all] [-o FORMAT] [-F FIELDS]
+├─ documents get ID... [-o FORMAT] [-F FIELDS]
 ├─ documents content ID...
 ├─ documents open ID...
 ├─ documents download ID... [--original] [--file PATH]
 │
-├─ tags [-o FORMAT]
-├─ correspondents [-o FORMAT]
-├─ document-types [-o FORMAT]
+├─ tags [-o FORMAT] [-F FIELDS]
+├─ correspondents [-o FORMAT] [-F FIELDS]
+├─ document-types [-o FORMAT] [-F FIELDS]
+│
+├─ mcp serve
 └─ version
 ```
 
@@ -50,10 +52,32 @@ items.
 **Multi-ID:** `get`, `content`, `open`, `download` accept one or more IDs.
 `--file` is only valid with a single ID.
 
-**Output:** `-o markdown` (default) or `-o json`, available on commands that
-produce formatted output. Paginated commands wrap JSON in an envelope
-(`results`, `total_count`, `has_more`). Metadata and multi-ID commands return
-plain JSON arrays.
+**Output:** `-o markdown` (default), `-o json`, or `-o ndjson`, available on
+commands that produce formatted output. Paginated commands wrap JSON in an
+envelope (`results`, `total_count`, `showing`, `has_more`). NDJSON emits a
+`_meta` header line followed by one JSON object per line. Metadata and multi-ID
+commands return plain JSON arrays.
+
+**Field filtering:** `-F`/`--fields` selects specific fields (e.g.,
+`-F id,title`). Reduces output size and skips unnecessary API calls when
+resolved fields (correspondent, document_type, tags) are not requested.
+
+**Structured errors:** `--json-errors` (or `PNGX_JSON_ERRORS=1`) emits
+machine-readable errors to stderr as `{"error":"...","code":"..."}`.
+
+**Exit codes:**
+
+| Code | Meaning |
+|------|---------|
+| 0 | Success |
+| 1 | Server or deserialization error |
+| 2 | Usage error or unauthorized |
+| 3 | Not found |
+| 4 | I/O, network, timeout, or URL error |
+| 5 | Configuration error |
+
+**MCP server:** `pngx mcp serve` starts an MCP server over stdio for
+tool-calling agents. Provides 9 read-only tools matching the CLI commands.
 
 ## Build commands
 
@@ -97,8 +121,11 @@ readme: add usage section
 - `figment` - layered configuration (TOML + env)
 - `jiff` - date/time formatting
 - `open` - open documents in default application
+- `rmcp` - MCP server (JSON-RPC over stdio)
 - `rpassword` - secure password input
+- `schemars` - JSON Schema generation for MCP tool parameters
 - `serde` / `serde_json` - serialization
+- `tokio` - async runtime for MCP server
 - `tracing` / `tracing-subscriber` - structured logging
 - `url` - URL parsing
 

@@ -1,7 +1,7 @@
 ---
 title: Agent-Native CLI with MCP Server
 type: feat
-status: active
+status: completed
 date: 2026-03-06
 origin: docs/brainstorms/2026-03-06-agent-native-cli-brainstorm.md
 ---

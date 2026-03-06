@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add `-F`/`--fields` flag for field filtering across all output commands
+- Add `-o ndjson` output format for streamable newline-delimited JSON
+- Add `--json-errors` flag and `PNGX_JSON_ERRORS` env var for structured error
+  output on stderr
+- Add `pngx mcp serve` command for MCP (Model Context Protocol) server over
+  stdio with 9 read-only tools
+- Add exit code 5 for configuration errors (missing URL or token)
+
 ## [0.6.3] - 2026-02-23
 
 ### Fixed
