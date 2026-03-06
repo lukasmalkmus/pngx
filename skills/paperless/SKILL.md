@@ -17,6 +17,17 @@ memory: user
 
 Search, list, filter, and retrieve documents from a Paperless-ngx instance.
 
+## Interfaces
+
+pngx provides two interfaces:
+
+| Interface | Best for | When to use |
+|-----------|----------|-------------|
+| **CLI** (`pngx ...`) | Token-efficient agents, scripting, jq pipelines | Default choice for capable agents |
+| **MCP** (`pngx mcp serve`) | Less capable agents, tool-calling workflows | When the agent supports MCP natively |
+
+Both interfaces consume the same API client and return identical data structures.
+
 ## Prerequisites
 
 The `pngx` CLI must be installed and configured:
@@ -58,13 +69,13 @@ Need documents?
 - ~~`--sort`~~ — no sort flags
 
 `inbox`, `search`, and `documents list` only accept `-n`/`--limit`, `-a`/`--all`,
-and `-o`/`--output`. For metadata filtering, pipe JSON output to `jq`.
+`-o`/`--output`, and `-F`/`--fields`. For metadata filtering, pipe JSON output to `jq`.
 
 ## Common Pitfalls
 
 | Wrong | Right | Why |
 |-------|-------|-----|
-| `pngx documents list -o json \| jq 'length'` → `4` | `pngx documents list -o json \| jq '.total_count'` | JSON output is an envelope with `results`, `total_count`, `showing`, `has_more`. `length` counts envelope keys, not documents. |
+| `pngx documents list -o json \| jq 'length'` | `pngx documents list -o json \| jq '.total_count'` | JSON output is an envelope with `results`, `total_count`, `showing`, `has_more`. `length` counts envelope keys, not documents. |
 | `pngx search "Rechnung" --document-type Invoice` | `pngx search "Rechnung"` then filter with `jq` | `--document-type` does not exist. |
 | `pngx search "invoice" -a` to count documents | `pngx documents list -a -o json \| jq '.total_count'` | `search` ranks by relevance. `documents list` gives the true count. |
 
@@ -244,8 +255,9 @@ pngx documents list -n 10
 
 Use `-o` / `--output` to control output:
 
-- `markdown` — tables (default, best for agent consumption)
+- `markdown` — tables (default, best for human consumption)
 - `json` — structured JSON (use when piping to `jq`)
+- `ndjson` — newline-delimited JSON (one object per line, streamable)
 
 **JSON envelope** (paginated commands only):
 
@@ -258,5 +270,93 @@ Use `-o` / `--output` to control output:
 }
 ```
 
+**NDJSON format** (paginated commands):
+
+```
+{"_meta":true,"total_count":1523,"showing":25,"has_more":true}
+{"id":42,"title":"Invoice 2026-01","correspondent":"ACME Corp",...}
+{"id":43,"title":"Contract renewal",...}
+```
+
+The first line is a metadata header (identified by `_meta: true`). Subsequent
+lines are data objects. NDJSON is ideal for streaming and line-by-line processing.
+
 Metadata commands (`tags`, `correspondents`, `document-types`) and multi-ID
-commands (`get 42 43`) return plain JSON arrays.
+commands (`get 42 43`) return plain JSON arrays (or one NDJSON line per item).
+
+## Field filtering
+
+Use `-F` / `--fields` to select specific fields and reduce output size:
+
+```sh
+pngx documents list -o json -F id,title
+pngx search "invoice" -F id,title,correspondent
+pngx tags -o json -F id,name
+```
+
+**Valid fields per entity:**
+
+| Entity | Fields |
+|--------|--------|
+| Documents | `id`, `title`, `correspondent`, `document_type`, `tags`, `created`, `added`, `archive_serial_number`, `original_file_name` |
+| Tags | `id`, `name`, `slug`, `color`, `is_inbox_tag`, `document_count` |
+| Correspondents | `id`, `name`, `slug`, `document_count` |
+| Document Types | `id`, `name`, `slug`, `document_count` |
+
+Field filtering reduces the JSON payload, saving tokens. It also skips metadata
+API calls when resolved fields (correspondent, document_type, tags) are not
+requested.
+
+## Structured errors
+
+Use `--json-errors` (or `PNGX_JSON_ERRORS=1`) to get machine-parseable errors
+on stderr:
+
+```json
+{"error": "document not found", "code": "not_found"}
+```
+
+**Error codes:** `unauthorized`, `not_found`, `invalid_url`, `io_error`,
+`network_error`, `timeout`, `scheme_mismatch`, `server_error`,
+`deserialization_error`, `config_error`, `usage_error`, `internal_error`
+
+**Exit codes:** 0 (success), 1 (server/deserialization), 2 (usage/unauthorized),
+3 (not found), 4 (I/O/network/timeout/URL), 5 (config error)
+
+## MCP Server
+
+Start the MCP server for tool-calling agents:
+
+```json
+{
+  "mcpServers": {
+    "pngx": {
+      "command": "pngx",
+      "args": ["mcp", "serve"],
+      "env": {
+        "PNGX_URL": "https://paperless.example.com",
+        "PNGX_TOKEN": "your-api-token"
+      }
+    }
+  }
+}
+```
+
+The server communicates over stdio using JSON-RPC (MCP protocol).
+
+### MCP Tools
+
+| Tool | Description | Parameters |
+|------|-------------|------------|
+| `search` | Search documents by query | `query` (required), `limit` (optional) |
+| `inbox` | List inbox documents | `limit` (optional) |
+| `documents_list` | List all documents | `limit` (optional) |
+| `documents_get` | Get documents by ID | `ids` (required, array) |
+| `documents_content` | Get document text content | `id` (required) |
+| `tags` | List all tags | (none) |
+| `correspondents` | List all correspondents | (none) |
+| `document_types` | List all document types | (none) |
+| `version` | Get server version | (none) |
+
+All tools are read-only. Document metadata (correspondent, type, tags) is
+resolved to human-readable names. The resolver is cached for 5 minutes.
