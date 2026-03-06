@@ -3,6 +3,10 @@ use std::collections::HashMap;
 use anyhow::Result;
 use pngx_client::Client;
 
+use crate::output::FieldFilter;
+
+const RESOLVED_FIELDS: &[&str] = &["correspondent", "document_type", "tags"];
+
 pub struct NameResolver {
     tags: HashMap<u64, String>,
     correspondents: HashMap<u64, String>,
@@ -10,7 +14,17 @@ pub struct NameResolver {
 }
 
 impl NameResolver {
-    pub fn fetch(client: &Client) -> Result<Self> {
+    pub fn fetch(client: &Client, fields: Option<&FieldFilter>) -> Result<Self> {
+        if let Some(f) = fields
+            && !f.needs_any(RESOLVED_FIELDS)
+        {
+            return Ok(Self {
+                tags: HashMap::new(),
+                correspondents: HashMap::new(),
+                document_types: HashMap::new(),
+            });
+        }
+
         let (tags, _) = client.collect_tags(None)?;
         let (correspondents, _) = client.collect_correspondents(None)?;
         let (document_types, _) = client.collect_document_types(None)?;

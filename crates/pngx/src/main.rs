@@ -31,7 +31,8 @@ use output::OutputFormat;
         pngx documents open 42 43    Open in the web UI\n  \
         pngx tags                    List all tags\n\n\
         OUTPUT:\n  \
-        Default output is markdown tables. Use -o json for structured output.",
+        Default output is markdown tables. Use -o json for structured output.\n  \
+        Use -F to select specific fields (e.g., -F id,title).",
     version
 )]
 struct Cli {
@@ -56,6 +57,10 @@ struct OutputArgs {
     /// Output format
     #[arg(short, long, value_enum)]
     output: Option<OutputFormat>,
+
+    /// Comma-separated list of fields to include (e.g., id,title,correspondent)
+    #[arg(short = 'F', long)]
+    fields: Option<String>,
 }
 
 #[derive(Subcommand)]
@@ -215,6 +220,19 @@ fn resolve_output(output: &OutputArgs, config: &config::ValidConfig) -> OutputFo
     output.output.unwrap_or(config.output_format)
 }
 
+/// Parse and validate the `--fields` flag for a specific entity type.
+fn resolve_fields<T: output::FieldNames>(
+    output: &OutputArgs,
+) -> anyhow::Result<Option<output::FieldFilter>> {
+    match &output.fields {
+        Some(raw) => {
+            let filter = output::FieldFilter::parse::<T>(raw)?;
+            Ok(Some(filter))
+        }
+        None => Ok(None),
+    }
+}
+
 fn run() -> anyhow::Result<()> {
     let cli = Cli::parse();
     init_tracing(cli.verbose);
@@ -237,11 +255,18 @@ fn run() -> anyhow::Result<()> {
             match action {
                 DocumentCommand::List { limit, all, output } => {
                     let format = resolve_output(&output, &config);
-                    commands::documents::list(&client, format, resolve_limit(limit, all))?;
+                    let fields = resolve_fields::<output::ResolvedDocument>(&output)?;
+                    commands::documents::list(
+                        &client,
+                        format,
+                        resolve_limit(limit, all),
+                        fields.as_ref(),
+                    )?;
                 }
                 DocumentCommand::Get { ids, output } => {
                     let format = resolve_output(&output, &config);
-                    commands::documents::get(&client, &ids, format)?;
+                    let fields = resolve_fields::<output::ResolvedDocument>(&output)?;
+                    commands::documents::get(&client, &ids, format, fields.as_ref())?;
                 }
                 DocumentCommand::Open { ids } => {
                     commands::documents::open(&config.url, &ids)?;
@@ -261,7 +286,8 @@ fn run() -> anyhow::Result<()> {
         Command::Inbox { limit, all, output } => {
             let (client, config) = build_client(cli.url.as_deref(), cli.token.as_deref())?;
             let format = resolve_output(&output, &config);
-            commands::inbox::list(&client, format, resolve_limit(limit, all))?;
+            let fields = resolve_fields::<output::ResolvedDocument>(&output)?;
+            commands::inbox::list(&client, format, resolve_limit(limit, all), fields.as_ref())?;
         }
         Command::Search {
             query,
@@ -271,22 +297,32 @@ fn run() -> anyhow::Result<()> {
         } => {
             let (client, config) = build_client(cli.url.as_deref(), cli.token.as_deref())?;
             let format = resolve_output(&output, &config);
-            commands::search::search(&client, &query, format, resolve_limit(limit, all))?;
+            let fields = resolve_fields::<output::ResolvedDocument>(&output)?;
+            commands::search::search(
+                &client,
+                &query,
+                format,
+                resolve_limit(limit, all),
+                fields.as_ref(),
+            )?;
         }
         Command::Tags { output } => {
             let (client, config) = build_client(cli.url.as_deref(), cli.token.as_deref())?;
             let format = resolve_output(&output, &config);
-            commands::tags::list(&client, format)?;
+            let fields = resolve_fields::<pngx_client::Tag>(&output)?;
+            commands::tags::list(&client, format, fields.as_ref())?;
         }
         Command::Correspondents { output } => {
             let (client, config) = build_client(cli.url.as_deref(), cli.token.as_deref())?;
             let format = resolve_output(&output, &config);
-            commands::correspondents::list(&client, format)?;
+            let fields = resolve_fields::<pngx_client::Correspondent>(&output)?;
+            commands::correspondents::list(&client, format, fields.as_ref())?;
         }
         Command::DocumentTypes { output } => {
             let (client, config) = build_client(cli.url.as_deref(), cli.token.as_deref())?;
             let format = resolve_output(&output, &config);
-            commands::document_types::list(&client, format)?;
+            let fields = resolve_fields::<pngx_client::DocumentType>(&output)?;
+            commands::document_types::list(&client, format, fields.as_ref())?;
         }
     }
 

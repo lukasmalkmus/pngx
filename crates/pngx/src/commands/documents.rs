@@ -5,19 +5,29 @@ use anyhow::{Context, Result, bail};
 use pngx_client::{Client, DocumentVersion};
 use url::Url;
 
-use crate::output::{OutputFormat, resolve_documents};
+use crate::output::{FieldFilter, OutputFormat, resolve_documents};
 use crate::resolve::NameResolver;
 
-pub fn list(client: &Client, format: OutputFormat, limit: Option<usize>) -> Result<()> {
+pub fn list(
+    client: &Client,
+    format: OutputFormat,
+    limit: Option<usize>,
+    fields: Option<&FieldFilter>,
+) -> Result<()> {
     let (docs, total) = client.collect_documents(limit)?;
-    let names = NameResolver::fetch(client)?;
+    let names = NameResolver::fetch(client, fields)?;
     let docs = resolve_documents(&docs, &names);
-    super::print_results(format, &docs, total)?;
+    super::print_results(format, &docs, total, fields)?;
     Ok(())
 }
 
-pub fn get(client: &Client, ids: &[u64], format: OutputFormat) -> Result<()> {
-    let names = NameResolver::fetch(client)?;
+pub fn get(
+    client: &Client,
+    ids: &[u64],
+    format: OutputFormat,
+    fields: Option<&FieldFilter>,
+) -> Result<()> {
+    let names = NameResolver::fetch(client, fields)?;
 
     let mut docs = Vec::with_capacity(ids.len());
     for &id in ids {
@@ -26,18 +36,23 @@ pub fn get(client: &Client, ids: &[u64], format: OutputFormat) -> Result<()> {
     let resolved = resolve_documents(&docs, &names);
 
     if ids.len() == 1 {
-        println!("{}", format.format_detail(&resolved[0])?);
+        println!("{}", format.format_detail(&resolved[0], fields)?);
     } else {
         match format {
             OutputFormat::Json => {
-                println!("{}", serde_json::to_string_pretty(&resolved)?);
+                let value = serde_json::to_value(&resolved)?;
+                let output = match fields {
+                    Some(f) => f.filter_json_array(value),
+                    None => value,
+                };
+                println!("{}", serde_json::to_string_pretty(&output)?);
             }
             OutputFormat::Markdown => {
                 for (i, doc) in resolved.iter().enumerate() {
                     if i > 0 {
                         println!();
                     }
-                    println!("{}", format.format_detail(doc)?);
+                    println!("{}", format.format_detail(doc, fields)?);
                 }
             }
         }

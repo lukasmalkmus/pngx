@@ -1,10 +1,10 @@
 use anyhow::Result;
 use pngx_client::Client;
 
-use crate::output::OutputFormat;
+use crate::output::{FieldFilter, OutputFormat};
 
-pub fn list(client: &Client, format: OutputFormat) -> Result<()> {
+pub fn list(client: &Client, format: OutputFormat, fields: Option<&FieldFilter>) -> Result<()> {
     let (types, _) = client.collect_document_types(None)?;
-    super::print_all(format, &types)?;
+    super::print_all(format, &types, fields)?;
     Ok(())
 }
