@@ -17,6 +17,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   stdio with 9 read-only tools
 - Add exit code 5 for configuration errors (missing URL or token)
 
+### Fixed
+
+- Emit structured JSON/NDJSON output for empty search and inbox results instead
+  of a plain text message
+
 ## [0.6.3] - 2026-02-23
 
 ### Fixed

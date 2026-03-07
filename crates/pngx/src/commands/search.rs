@@ -13,7 +13,7 @@ pub fn search(
 ) -> Result<()> {
     let (results, total) = client.collect_search(query, limit)?;
     if results.is_empty() {
-        eprintln!("No documents found for query: {query}");
+        super::print_empty(format, &format!("No documents found for query: {query}"))?;
     } else {
         let names = NameResolver::fetch(client, fields)?;
         let results = resolve_documents(&results, &names);

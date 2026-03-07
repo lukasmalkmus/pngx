@@ -73,6 +73,29 @@ pub fn print_all<T: Tabular + serde::Serialize>(
     Ok(())
 }
 
+/// Handle empty results: emit structured output for JSON/NDJSON, human
+/// message for markdown.
+pub fn print_empty(format: OutputFormat, message: &str) -> anyhow::Result<()> {
+    match format {
+        OutputFormat::Json => {
+            let wrapper = serde_json::json!({
+                "results": [],
+                "total_count": 0,
+                "showing": 0,
+                "has_more": false,
+            });
+            println!("{}", serde_json::to_string_pretty(&wrapper)?);
+        }
+        OutputFormat::Ndjson => {
+            print_ndjson_meta(0, 0);
+        }
+        OutputFormat::Markdown => {
+            eprintln!("{message}");
+        }
+    }
+    Ok(())
+}
+
 fn print_ndjson_meta(showing: usize, total: u64) {
     let meta = serde_json::json!({
         "_meta": true,

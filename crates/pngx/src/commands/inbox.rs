@@ -12,7 +12,7 @@ pub fn list(
 ) -> Result<()> {
     let (results, total) = client.collect_inbox_documents(limit)?;
     if results.is_empty() {
-        eprintln!("Inbox is empty");
+        super::print_empty(format, "Inbox is empty")?;
     } else {
         let names = NameResolver::fetch(client, fields)?;
         let results = resolve_documents(&results, &names);
