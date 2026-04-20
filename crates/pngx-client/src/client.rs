@@ -13,10 +13,10 @@ use url::Url;
 use crate::error::ApiError;
 use crate::multipart::MultipartBuilder;
 use crate::types::{
-    Correspondent, CorrespondentCreate, CorrespondentUpdate, Document, DocumentType,
-    DocumentTypeCreate, DocumentTypeUpdate, DocumentVersion, PaginatedResponse, StoragePath,
-    StoragePathCreate, StoragePathUpdate, Tag, TagCreate, TagUpdate, Task, TaskStatus, UiSettings,
-    UploadMetadata,
+    BulkEditRequest, BulkEditResponse, Correspondent, CorrespondentCreate, CorrespondentUpdate,
+    Document, DocumentPatch, DocumentType, DocumentTypeCreate, DocumentTypeUpdate, DocumentVersion,
+    PaginatedResponse, StoragePath, StoragePathCreate, StoragePathUpdate, Tag, TagCreate,
+    TagUpdate, Task, TaskStatus, UiSettings, UploadMetadata,
 };
 
 const WAIT_POLL_MIN: Duration = Duration::from_millis(250);
@@ -594,6 +594,37 @@ impl Client {
     /// Returns [`ApiError::NotFound`] if the storage path does not exist.
     pub fn delete_storage_path(&self, id: u64) -> Result<(), ApiError> {
         self.delete_path(&format!("api/storage_paths/{id}/"))
+    }
+
+    // --- Document update / delete / bulk edit ------------------------------
+
+    /// Partially update a document by ID.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ApiError::NotFound`] if the document does not exist, or
+    /// [`ApiError::ValidationError`] on DRF field errors.
+    pub fn update_document(&self, id: u64, patch: &DocumentPatch) -> Result<Document, ApiError> {
+        self.patch_json(&format!("api/documents/{id}/"), patch)
+    }
+
+    /// Delete a document by ID.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ApiError::NotFound`] if the document does not exist.
+    pub fn delete_document(&self, id: u64) -> Result<(), ApiError> {
+        self.delete_path(&format!("api/documents/{id}/"))
+    }
+
+    /// Perform a server-side bulk edit on a set of documents.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ApiError::ValidationError`] if Paperless rejects the
+    /// payload.
+    pub fn bulk_edit(&self, request: &BulkEditRequest) -> Result<BulkEditResponse, ApiError> {
+        self.post_json("api/documents/bulk_edit/", request)
     }
 
     // --- Document upload + task polling ------------------------------------
@@ -1606,6 +1637,159 @@ mod tests {
             let round_trip: MatchingAlgorithm = serde_json::from_str(&json).unwrap();
             assert_eq!(round_trip, variant);
         }
+    }
+
+    // --- Document update / delete / bulk edit ---------------------------
+
+    #[tokio::test]
+    async fn test_update_document_sends_only_non_none_fields() {
+        use wiremock::matchers::body_json_string;
+
+        let (server, client) = setup().await;
+        let request_body = serde_json::json!({"title": "New title"});
+        let response_body = serde_json::json!({
+            "id": 42,
+            "title": "New title",
+            "content": null,
+            "correspondent": null,
+            "document_type": null,
+            "tags": [],
+            "created": null,
+            "added": null,
+            "archive_serial_number": null,
+            "original_file_name": null
+        });
+
+        Mock::given(method("PATCH"))
+            .and(path("/api/documents/42/"))
+            .and(header("Authorization", "Token test-token"))
+            .and(body_json_string(request_body.to_string()))
+            .respond_with(ResponseTemplate::new(200).set_body_json(response_body))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let patch = DocumentPatch {
+            title: Some("New title".to_string()),
+            ..Default::default()
+        };
+        let updated = client
+            .update_document(42, &patch)
+            .expect("update_document should succeed");
+        assert_eq!(updated.title, "New title");
+    }
+
+    #[tokio::test]
+    async fn test_update_document_with_tag_replace_sends_tags_array() {
+        use wiremock::matchers::body_json_string;
+
+        let (server, client) = setup().await;
+        let request_body = serde_json::json!({"tags": [1, 2, 3]});
+        let response_body = serde_json::json!({
+            "id": 5,
+            "title": "x",
+            "content": null,
+            "correspondent": null,
+            "document_type": null,
+            "tags": [1, 2, 3],
+            "created": null,
+            "added": null,
+            "archive_serial_number": null,
+            "original_file_name": null
+        });
+
+        Mock::given(method("PATCH"))
+            .and(path("/api/documents/5/"))
+            .and(body_json_string(request_body.to_string()))
+            .respond_with(ResponseTemplate::new(200).set_body_json(response_body))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let patch = DocumentPatch {
+            tags: Some(vec![1, 2, 3]),
+            ..Default::default()
+        };
+        client
+            .update_document(5, &patch)
+            .expect("update_document should succeed");
+    }
+
+    #[tokio::test]
+    async fn test_delete_document_no_content() {
+        let (server, client) = setup().await;
+        Mock::given(method("DELETE"))
+            .and(path("/api/documents/42/"))
+            .and(header("Authorization", "Token test-token"))
+            .respond_with(ResponseTemplate::new(204))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        client.delete_document(42).expect("delete should succeed");
+    }
+
+    #[tokio::test]
+    async fn test_bulk_edit_add_tag_body_shape() {
+        use crate::types::BulkEditMethod;
+        use wiremock::matchers::body_json_string;
+
+        let (server, client) = setup().await;
+        let request_body = serde_json::json!({
+            "documents": [1, 2, 3],
+            "method": "add_tag",
+            "parameters": {"tag": 5}
+        });
+        let response_body = serde_json::json!({
+            "result": "ok",
+            "affected_documents": [1, 2, 3]
+        });
+
+        Mock::given(method("POST"))
+            .and(path("/api/documents/bulk_edit/"))
+            .and(body_json_string(request_body.to_string()))
+            .respond_with(ResponseTemplate::new(200).set_body_json(response_body))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let response = client
+            .bulk_edit(&BulkEditRequest {
+                documents: vec![1, 2, 3],
+                method: BulkEditMethod::AddTag,
+                parameters: serde_json::json!({"tag": 5}),
+            })
+            .expect("bulk_edit should succeed");
+        assert_eq!(response.affected_documents, vec![1, 2, 3]);
+    }
+
+    #[tokio::test]
+    async fn test_bulk_edit_delete_method_snake_case() {
+        use crate::types::BulkEditMethod;
+        use wiremock::matchers::body_json_string;
+
+        let (server, client) = setup().await;
+        let request_body = serde_json::json!({
+            "documents": [9],
+            "method": "delete",
+            "parameters": {}
+        });
+
+        Mock::given(method("POST"))
+            .and(path("/api/documents/bulk_edit/"))
+            .and(body_json_string(request_body.to_string()))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({})))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        client
+            .bulk_edit(&BulkEditRequest {
+                documents: vec![9],
+                method: BulkEditMethod::Delete,
+                parameters: serde_json::json!({}),
+            })
+            .expect("bulk_edit delete should succeed");
     }
 
     // --- Upload + task polling ------------------------------------------

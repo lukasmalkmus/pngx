@@ -340,6 +340,91 @@ pub struct StoragePathCreate {
     pub is_insensitive: Option<bool>,
 }
 
+// --- Document write payloads ---------------------------------------------
+
+/// Partial update for a document. All fields are `Option<_>` and skipped
+/// when `None`, matching Paperless's PATCH semantics: fields that are
+/// absent remain unchanged. The `tags` field, when present, replaces the
+/// document's tag list wholesale — use `bulk_edit` with `add_tag` /
+/// `remove_tag` for atomic per-tag edits to avoid races.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+pub struct DocumentPatch {
+    /// New title.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    /// New creation date.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created: Option<jiff::civil::Date>,
+    /// New correspondent ID (or `null` to clear — see note).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub correspondent: Option<u64>,
+    /// New document type ID.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub document_type: Option<u64>,
+    /// New storage path ID.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub storage_path: Option<u64>,
+    /// New tag list (replaces the existing list wholesale).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tags: Option<Vec<u64>>,
+    /// New archive serial number.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub archive_serial_number: Option<u64>,
+}
+
+/// Methods accepted by `POST /api/documents/bulk_edit/`. Serializes as a
+/// `snake_case` string matching Paperless's expected value.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BulkEditMethod {
+    /// Set correspondent on all targeted documents.
+    SetCorrespondent,
+    /// Set document type on all targeted documents.
+    SetDocumentType,
+    /// Set storage path on all targeted documents.
+    SetStoragePath,
+    /// Add a single tag to all targeted documents.
+    AddTag,
+    /// Remove a single tag from all targeted documents.
+    RemoveTag,
+    /// Add and/or remove multiple tags atomically.
+    ModifyTags,
+    /// Delete targeted documents (destructive).
+    Delete,
+    /// Reprocess OCR on targeted documents.
+    Reprocess,
+    /// Rotate targeted documents.
+    Rotate,
+    /// Add and/or remove custom fields.
+    ModifyCustomFields,
+}
+
+/// Body for `POST /api/documents/bulk_edit/`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct BulkEditRequest {
+    /// IDs of documents to operate on.
+    pub documents: Vec<u64>,
+    /// The operation to perform.
+    pub method: BulkEditMethod,
+    /// Method-specific parameters (pass `serde_json::json!({})` for
+    /// methods that take no parameters, like `delete` or `reprocess`).
+    pub parameters: serde_json::Value,
+}
+
+/// Response from `POST /api/documents/bulk_edit/`. The exact shape varies
+/// by Paperless version; we expose the common fields and preserve the
+/// full raw value for callers that need it.
+#[derive(Debug, Clone, Deserialize)]
+#[non_exhaustive]
+pub struct BulkEditResponse {
+    /// Human-readable result summary (present on some versions).
+    #[serde(default)]
+    pub result: Option<String>,
+    /// IDs of documents that were actually modified.
+    #[serde(default)]
+    pub affected_documents: Vec<u64>,
+}
+
 // --- Task polling --------------------------------------------------------
 
 /// Paperless-ngx consumption task status.

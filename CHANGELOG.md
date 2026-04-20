@@ -33,6 +33,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (task not visible after repeated polls, likely reaped by Celery) with
   `--json-errors` codes `task_pending` and `task_unknown`; both map to
   exit code 4.
+- Add `pngx documents update ID` with `--title`, `--created`,
+  `--correspondent`, `--document-type`, `--storage-path`, `--tags`
+  (replace-all), `--add-tag`/`--remove-tag` (atomic via `bulk_edit`), and
+  `--asn`. Per-tag edits route through `bulk_edit` to avoid the
+  read-modify-write race that `--tags` still carries.
+- Add `pngx documents delete ID...` (with `--yes` for non-interactive
+  contexts), `pngx documents tag IDS... TAGS...`,
+  `pngx documents untag IDS... TAGS...`, and a generic
+  `pngx documents bulk METHOD --ids ... --params '{...}'` escape hatch.
 
 ### Changed
 

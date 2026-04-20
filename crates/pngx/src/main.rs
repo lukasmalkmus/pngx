@@ -396,6 +396,73 @@ enum DocumentCommand {
         #[arg(long, alias = "dest")]
         file: Option<PathBuf>,
     },
+    /// Update document metadata (title, correspondent, tags, etc.)
+    Update {
+        /// Document ID
+        id: u64,
+        /// New title
+        #[arg(long)]
+        title: Option<String>,
+        /// New creation date (YYYY-MM-DD)
+        #[arg(long)]
+        created: Option<jiff::civil::Date>,
+        /// Assign a correspondent (ID or exact name)
+        #[arg(long)]
+        correspondent: Option<String>,
+        /// Assign a document type (ID or exact name)
+        #[arg(long)]
+        document_type: Option<String>,
+        /// Assign a storage path (ID or exact name)
+        #[arg(long)]
+        storage_path: Option<String>,
+        /// Replace all tags with this comma-separated list (races with
+        /// concurrent PATCH writes; prefer `--add-tag`/`--remove-tag`)
+        #[arg(long, value_delimiter = ',')]
+        tags: Option<Vec<String>>,
+        /// Add a tag (atomic via `bulk_edit`); repeatable
+        #[arg(long = "add-tag")]
+        add_tags: Vec<String>,
+        /// Remove a tag (atomic via `bulk_edit`); repeatable
+        #[arg(long = "remove-tag")]
+        remove_tags: Vec<String>,
+        /// Archive serial number
+        #[arg(long = "asn")]
+        archive_serial_number: Option<u64>,
+    },
+    /// Delete documents
+    Delete {
+        /// Document IDs
+        #[arg(required = true)]
+        ids: Vec<u64>,
+        /// Skip the interactive confirmation
+        #[arg(long)]
+        yes: bool,
+    },
+    /// Add tag(s) to one or more documents (server-side atomic)
+    Tag {
+        /// Document IDs (at least one), followed by one or more tag names or IDs
+        #[arg(required = true)]
+        ids_and_tags: Vec<String>,
+    },
+    /// Remove tag(s) from one or more documents (server-side atomic)
+    Untag {
+        /// Document IDs (at least one), followed by one or more tag names or IDs
+        #[arg(required = true)]
+        ids_and_tags: Vec<String>,
+    },
+    /// Run a raw `bulk_edit` operation
+    Bulk {
+        /// Operation name (e.g. `set_correspondent`, `delete`, `rotate`)
+        method: String,
+        /// Document IDs (comma-separated)
+        #[arg(long, value_delimiter = ',', required = true)]
+        ids: Vec<u64>,
+        /// JSON object with method-specific parameters
+        #[arg(long, default_value = "{}")]
+        params: String,
+        #[command(flatten)]
+        output: OutputArgs,
+    },
     /// Upload a new document
     Upload {
         /// Path to the file to upload
@@ -527,6 +594,61 @@ fn run(cli: Cli) -> anyhow::Result<()> {
                     file,
                 } => {
                     commands::documents::download(&client, &ids, original, file.as_ref())?;
+                }
+                DocumentCommand::Update {
+                    id,
+                    title,
+                    created,
+                    correspondent,
+                    document_type,
+                    storage_path,
+                    tags,
+                    add_tags,
+                    remove_tags,
+                    archive_serial_number,
+                } => {
+                    commands::documents::update(
+                        &client,
+                        id,
+                        title,
+                        created,
+                        correspondent.as_deref(),
+                        document_type.as_deref(),
+                        storage_path.as_deref(),
+                        tags.as_deref(),
+                        &add_tags,
+                        &remove_tags,
+                        archive_serial_number,
+                    )?;
+                }
+                DocumentCommand::Delete { ids, yes } => {
+                    let label = if ids.len() == 1 {
+                        format!("document {}", ids[0])
+                    } else {
+                        format!("{} documents", ids.len())
+                    };
+                    confirm_delete("document", &label, yes)?;
+                    commands::documents::delete(&client, &ids)?;
+                }
+                DocumentCommand::Tag { ids_and_tags } => {
+                    let (ids, tags) = split_ids_and_tags(&ids_and_tags)?;
+                    commands::documents::tag(&client, &ids, &tags)?;
+                }
+                DocumentCommand::Untag { ids_and_tags } => {
+                    let (ids, tags) = split_ids_and_tags(&ids_and_tags)?;
+                    commands::documents::untag(&client, &ids, &tags)?;
+                }
+                DocumentCommand::Bulk {
+                    method,
+                    ids,
+                    params,
+                    output,
+                } => {
+                    let method = parse_bulk_method(&method)?;
+                    let parameters: serde_json::Value = serde_json::from_str(&params)
+                        .map_err(|e| anyhow::anyhow!("invalid --params JSON: {e}"))?;
+                    let format = resolve_output(&output, &config);
+                    commands::documents::bulk(&client, &ids, method, parameters, format)?;
                 }
                 DocumentCommand::Upload {
                     file,
@@ -871,6 +993,55 @@ fn dispatch_storage_paths(
             commands::storage_paths::delete(client, &id_or_name)
         }
     }
+}
+
+/// Split a mixed list of document IDs and tag identifiers for
+/// `pngx documents tag/untag`. Tokens that parse as `u64` are treated as
+/// document IDs; the rest are tag names or IDs. Requires at least one of
+/// each.
+fn split_ids_and_tags(input: &[String]) -> anyhow::Result<(Vec<u64>, Vec<String>)> {
+    let mut ids = Vec::new();
+    let mut tags = Vec::new();
+    for token in input {
+        if let Ok(id) = token.parse::<u64>() {
+            if tags.is_empty() {
+                ids.push(id);
+            } else {
+                // Once we've seen a tag, remaining tokens must be tags too.
+                tags.push(token.clone());
+            }
+        } else {
+            tags.push(token.clone());
+        }
+    }
+    if ids.is_empty() {
+        anyhow::bail!("expected at least one document ID (numeric)");
+    }
+    if tags.is_empty() {
+        anyhow::bail!("expected at least one tag name or ID");
+    }
+    Ok((ids, tags))
+}
+
+fn parse_bulk_method(method: &str) -> anyhow::Result<pngx_client::BulkEditMethod> {
+    use pngx_client::BulkEditMethod as M;
+    Ok(match method {
+        "set_correspondent" => M::SetCorrespondent,
+        "set_document_type" => M::SetDocumentType,
+        "set_storage_path" => M::SetStoragePath,
+        "add_tag" => M::AddTag,
+        "remove_tag" => M::RemoveTag,
+        "modify_tags" => M::ModifyTags,
+        "delete" => M::Delete,
+        "reprocess" => M::Reprocess,
+        "rotate" => M::Rotate,
+        "modify_custom_fields" => M::ModifyCustomFields,
+        other => anyhow::bail!(
+            "unknown bulk_edit method '{other}'. Known methods: \
+             set_correspondent, set_document_type, set_storage_path, add_tag, \
+             remove_tag, modify_tags, delete, reprocess, rotate, modify_custom_fields"
+        ),
+    })
 }
 
 /// Prompt for delete confirmation when stdin is a TTY; in non-interactive

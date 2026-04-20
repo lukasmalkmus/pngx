@@ -25,8 +25,9 @@ pub use jiff;
 pub use client::{Client, ClientBuilder};
 pub use error::ApiError;
 pub use types::{
-    Correspondent, CorrespondentCreate, CorrespondentUpdate, Document, DocumentType,
-    DocumentTypeCreate, DocumentTypeUpdate, DocumentVersion, MatchingAlgorithm, PaginatedResponse,
-    StoragePath, StoragePathCreate, StoragePathUpdate, Tag, TagCreate, TagUpdate, Task, TaskStatus,
-    UiSettings, UploadMetadata,
+    BulkEditMethod, BulkEditRequest, BulkEditResponse, Correspondent, CorrespondentCreate,
+    CorrespondentUpdate, Document, DocumentPatch, DocumentType, DocumentTypeCreate,
+    DocumentTypeUpdate, DocumentVersion, MatchingAlgorithm, PaginatedResponse, StoragePath,
+    StoragePathCreate, StoragePathUpdate, Tag, TagCreate, TagUpdate, Task, TaskStatus, UiSettings,
+    UploadMetadata,
 };
