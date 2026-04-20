@@ -14,7 +14,7 @@ use tokio::sync::RwLock;
 
 use pngx_client::Client;
 
-const CACHE_TTL: Duration = Duration::from_secs(300);
+const CACHE_TTL: Duration = Duration::from_mins(5);
 
 struct CachedResolver {
     tags: HashMap<u64, String>,
