@@ -16,6 +16,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add `SessionStart` hook (`hooks/ensure-binary.sh`) that keeps the
   plugin-managed binary in sync in the background, never blocking session
   startup.
+- Add `pngx tags create|update|delete`, `pngx correspondents create|update|delete`,
+  `pngx document-types create|update|delete`, and a new `pngx storage-paths`
+  category with `list|create|update|delete`. All accept `ID` or exact name
+  as input; ambiguous names surface a candidate list.
+- Add `ApiError::BadRequest` and `ApiError::ValidationError` variants and
+  thread them through exit codes (both → 2) and `--json-errors` codes
+  (`bad_request`, `validation_error`).
+
+### Changed
+
+- Restructure the `tags`, `correspondents`, and `document-types` commands
+  into subcommand groups. Bare `pngx tags`, `pngx correspondents`, and
+  `pngx document-types` still list (default action); output flags (`-o`,
+  `-F`) now live on the explicit `list` subcommand.
 
 ## [0.7.1] - 2026-03-07
 

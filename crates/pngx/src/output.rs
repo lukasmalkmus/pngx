@@ -4,7 +4,7 @@ use comfy_table::presets::ASCII_MARKDOWN;
 use comfy_table::{ContentArrangement, Table};
 use serde::{Deserialize, Serialize};
 
-use pngx_client::{Correspondent, Document, DocumentType, Tag};
+use pngx_client::{Correspondent, Document, DocumentType, StoragePath, Tag};
 
 use crate::resolve::NameResolver;
 
@@ -232,6 +232,7 @@ impl FieldFilter {
                     "Documents" => f == "document_count",
                     "Slug" => f == "slug",
                     "Inbox Tag" => f == "is_inbox_tag",
+                    "Path" => f == "path",
                     "Original File" => f == "original_file_name",
                     "ASN" => f == "archive_serial_number",
                     _ => false,
@@ -419,6 +420,12 @@ impl FieldNames for DocumentType {
     }
 }
 
+impl FieldNames for StoragePath {
+    fn valid_fields() -> &'static [&'static str] {
+        &["id", "name", "slug", "path", "document_count"]
+    }
+}
+
 // --- Tabular impls ---
 
 impl Tabular for Tag {
@@ -463,6 +470,23 @@ impl Tabular for DocumentType {
         vec![
             self.id.to_string(),
             self.name.clone(),
+            self.document_count
+                .map(|n| n.to_string())
+                .unwrap_or_default(),
+        ]
+    }
+}
+
+impl Tabular for StoragePath {
+    fn headers() -> &'static [&'static str] {
+        &["ID", "Name", "Path", "Documents"]
+    }
+
+    fn row(&self) -> Vec<String> {
+        vec![
+            self.id.to_string(),
+            self.name.clone(),
+            self.path.clone(),
             self.document_count
                 .map(|n| n.to_string())
                 .unwrap_or_default(),

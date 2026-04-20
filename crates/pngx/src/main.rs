@@ -11,6 +11,7 @@ use clap::{ArgAction, Args, Parser, Subcommand};
 use pngx_client::ApiError;
 use tracing_subscriber::EnvFilter;
 
+use commands::MatchingAlgorithmArg;
 use config::{ConfigError, RawConfig};
 use output::OutputFormat;
 
@@ -111,20 +112,25 @@ enum Command {
         #[command(flatten)]
         output: OutputArgs,
     },
-    /// List tags
+    /// Manage tags (`list` is the default action)
     Tags {
-        #[command(flatten)]
-        output: OutputArgs,
+        #[command(subcommand)]
+        action: Option<TagsCommand>,
     },
-    /// List correspondents
+    /// Manage correspondents (`list` is the default action)
     Correspondents {
-        #[command(flatten)]
-        output: OutputArgs,
+        #[command(subcommand)]
+        action: Option<CorrespondentsCommand>,
     },
-    /// List document types
+    /// Manage document types (`list` is the default action)
     DocumentTypes {
-        #[command(flatten)]
-        output: OutputArgs,
+        #[command(subcommand)]
+        action: Option<DocumentTypesCommand>,
+    },
+    /// Manage storage paths (`list` is the default action)
+    StoragePaths {
+        #[command(subcommand)]
+        action: Option<StoragePathsCommand>,
     },
     /// MCP (Model Context Protocol) server
     Mcp {
@@ -133,6 +139,193 @@ enum Command {
     },
     /// Show version information
     Version,
+}
+
+#[derive(Subcommand)]
+enum TagsCommand {
+    /// List tags (default)
+    List {
+        #[command(flatten)]
+        output: OutputArgs,
+    },
+    /// Create a new tag
+    Create {
+        /// Tag name
+        name: String,
+        /// Hex color (e.g. #c02020)
+        #[arg(long)]
+        color: Option<String>,
+        /// Auto-match algorithm
+        #[arg(long, value_enum)]
+        matching_algorithm: Option<MatchingAlgorithmArg>,
+        /// Match expression for the chosen algorithm
+        #[arg(long = "match")]
+        matches: Option<String>,
+        /// Case-insensitive matching
+        #[arg(long)]
+        is_insensitive: Option<bool>,
+        /// Mark documents with this tag as inbox items
+        #[arg(long = "is-inbox")]
+        is_inbox_tag: Option<bool>,
+        #[command(flatten)]
+        output: OutputArgs,
+    },
+    /// Update an existing tag (by ID or name)
+    Update {
+        /// Tag ID or name
+        id_or_name: String,
+        /// New name
+        #[arg(long)]
+        name: Option<String>,
+        /// New hex color
+        #[arg(long)]
+        color: Option<String>,
+        #[arg(long, value_enum)]
+        matching_algorithm: Option<MatchingAlgorithmArg>,
+        #[arg(long = "match")]
+        matches: Option<String>,
+        #[arg(long)]
+        is_insensitive: Option<bool>,
+        #[arg(long = "is-inbox")]
+        is_inbox_tag: Option<bool>,
+        #[command(flatten)]
+        output: OutputArgs,
+    },
+    /// Delete a tag (by ID or name)
+    Delete {
+        /// Tag ID or name
+        id_or_name: String,
+        /// Skip confirmation prompt
+        #[arg(long)]
+        yes: bool,
+    },
+}
+
+#[derive(Subcommand)]
+enum CorrespondentsCommand {
+    /// List correspondents (default)
+    List {
+        #[command(flatten)]
+        output: OutputArgs,
+    },
+    /// Create a new correspondent
+    Create {
+        name: String,
+        #[arg(long, value_enum)]
+        matching_algorithm: Option<MatchingAlgorithmArg>,
+        #[arg(long = "match")]
+        matches: Option<String>,
+        #[arg(long)]
+        is_insensitive: Option<bool>,
+        #[command(flatten)]
+        output: OutputArgs,
+    },
+    /// Update an existing correspondent (by ID or name)
+    Update {
+        id_or_name: String,
+        #[arg(long)]
+        name: Option<String>,
+        #[arg(long, value_enum)]
+        matching_algorithm: Option<MatchingAlgorithmArg>,
+        #[arg(long = "match")]
+        matches: Option<String>,
+        #[arg(long)]
+        is_insensitive: Option<bool>,
+        #[command(flatten)]
+        output: OutputArgs,
+    },
+    /// Delete a correspondent (by ID or name)
+    Delete {
+        id_or_name: String,
+        #[arg(long)]
+        yes: bool,
+    },
+}
+
+#[derive(Subcommand)]
+enum DocumentTypesCommand {
+    /// List document types (default)
+    List {
+        #[command(flatten)]
+        output: OutputArgs,
+    },
+    /// Create a new document type
+    Create {
+        name: String,
+        #[arg(long, value_enum)]
+        matching_algorithm: Option<MatchingAlgorithmArg>,
+        #[arg(long = "match")]
+        matches: Option<String>,
+        #[arg(long)]
+        is_insensitive: Option<bool>,
+        #[command(flatten)]
+        output: OutputArgs,
+    },
+    /// Update an existing document type (by ID or name)
+    Update {
+        id_or_name: String,
+        #[arg(long)]
+        name: Option<String>,
+        #[arg(long, value_enum)]
+        matching_algorithm: Option<MatchingAlgorithmArg>,
+        #[arg(long = "match")]
+        matches: Option<String>,
+        #[arg(long)]
+        is_insensitive: Option<bool>,
+        #[command(flatten)]
+        output: OutputArgs,
+    },
+    /// Delete a document type (by ID or name)
+    Delete {
+        id_or_name: String,
+        #[arg(long)]
+        yes: bool,
+    },
+}
+
+#[derive(Subcommand)]
+enum StoragePathsCommand {
+    /// List storage paths (default)
+    List {
+        #[command(flatten)]
+        output: OutputArgs,
+    },
+    /// Create a new storage path
+    Create {
+        name: String,
+        /// Path template (e.g. `{{ correspondent }}/{{ created_year }}`)
+        path: String,
+        #[arg(long, value_enum)]
+        matching_algorithm: Option<MatchingAlgorithmArg>,
+        #[arg(long = "match")]
+        matches: Option<String>,
+        #[arg(long)]
+        is_insensitive: Option<bool>,
+        #[command(flatten)]
+        output: OutputArgs,
+    },
+    /// Update an existing storage path (by ID or name)
+    Update {
+        id_or_name: String,
+        #[arg(long)]
+        name: Option<String>,
+        #[arg(long)]
+        path: Option<String>,
+        #[arg(long, value_enum)]
+        matching_algorithm: Option<MatchingAlgorithmArg>,
+        #[arg(long = "match")]
+        matches: Option<String>,
+        #[arg(long)]
+        is_insensitive: Option<bool>,
+        #[command(flatten)]
+        output: OutputArgs,
+    },
+    /// Delete a storage path (by ID or name)
+    Delete {
+        id_or_name: String,
+        #[arg(long)]
+        yes: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -327,23 +520,21 @@ fn run(cli: Cli) -> anyhow::Result<()> {
                 fields.as_ref(),
             )?;
         }
-        Command::Tags { output } => {
+        Command::Tags { action } => {
             let (client, config) = build_client(cli.url.as_deref(), cli.token.as_deref())?;
-            let format = resolve_output(&output, &config);
-            let fields = resolve_fields::<pngx_client::Tag>(&output)?;
-            commands::tags::list(&client, format, fields.as_ref())?;
+            dispatch_tags(&client, &config, action)?;
         }
-        Command::Correspondents { output } => {
+        Command::Correspondents { action } => {
             let (client, config) = build_client(cli.url.as_deref(), cli.token.as_deref())?;
-            let format = resolve_output(&output, &config);
-            let fields = resolve_fields::<pngx_client::Correspondent>(&output)?;
-            commands::correspondents::list(&client, format, fields.as_ref())?;
+            dispatch_correspondents(&client, &config, action)?;
         }
-        Command::DocumentTypes { output } => {
+        Command::DocumentTypes { action } => {
             let (client, config) = build_client(cli.url.as_deref(), cli.token.as_deref())?;
-            let format = resolve_output(&output, &config);
-            let fields = resolve_fields::<pngx_client::DocumentType>(&output)?;
-            commands::document_types::list(&client, format, fields.as_ref())?;
+            dispatch_document_types(&client, &config, action)?;
+        }
+        Command::StoragePaths { action } => {
+            let (client, config) = build_client(cli.url.as_deref(), cli.token.as_deref())?;
+            dispatch_storage_paths(&client, &config, action)?;
         }
         Command::Mcp { action } => match action {
             McpCommand::Serve => {
@@ -359,12 +550,303 @@ fn run(cli: Cli) -> anyhow::Result<()> {
     Ok(())
 }
 
+fn dispatch_tags(
+    client: &pngx_client::Client,
+    config: &config::ValidConfig,
+    action: Option<TagsCommand>,
+) -> anyhow::Result<()> {
+    match action.unwrap_or(TagsCommand::List {
+        output: OutputArgs {
+            output: None,
+            fields: None,
+        },
+    }) {
+        TagsCommand::List { output } => {
+            let format = resolve_output(&output, config);
+            let fields = resolve_fields::<pngx_client::Tag>(&output)?;
+            commands::tags::list(client, format, fields.as_ref())
+        }
+        TagsCommand::Create {
+            name,
+            color,
+            matching_algorithm,
+            matches,
+            is_insensitive,
+            is_inbox_tag,
+            output,
+        } => {
+            let format = resolve_output(&output, config);
+            let fields = resolve_fields::<pngx_client::Tag>(&output)?;
+            commands::tags::create(
+                client,
+                name,
+                color,
+                matching_algorithm.map(Into::into),
+                matches,
+                is_insensitive,
+                is_inbox_tag,
+                format,
+                fields.as_ref(),
+            )
+        }
+        TagsCommand::Update {
+            id_or_name,
+            name,
+            color,
+            matching_algorithm,
+            matches,
+            is_insensitive,
+            is_inbox_tag,
+            output,
+        } => {
+            let format = resolve_output(&output, config);
+            let fields = resolve_fields::<pngx_client::Tag>(&output)?;
+            commands::tags::update(
+                client,
+                &id_or_name,
+                name,
+                color,
+                matching_algorithm.map(Into::into),
+                matches,
+                is_insensitive,
+                is_inbox_tag,
+                format,
+                fields.as_ref(),
+            )
+        }
+        TagsCommand::Delete { id_or_name, yes } => {
+            confirm_delete("tag", &id_or_name, yes)?;
+            commands::tags::delete(client, &id_or_name)
+        }
+    }
+}
+
+fn dispatch_correspondents(
+    client: &pngx_client::Client,
+    config: &config::ValidConfig,
+    action: Option<CorrespondentsCommand>,
+) -> anyhow::Result<()> {
+    match action.unwrap_or(CorrespondentsCommand::List {
+        output: OutputArgs {
+            output: None,
+            fields: None,
+        },
+    }) {
+        CorrespondentsCommand::List { output } => {
+            let format = resolve_output(&output, config);
+            let fields = resolve_fields::<pngx_client::Correspondent>(&output)?;
+            commands::correspondents::list(client, format, fields.as_ref())
+        }
+        CorrespondentsCommand::Create {
+            name,
+            matching_algorithm,
+            matches,
+            is_insensitive,
+            output,
+        } => {
+            let format = resolve_output(&output, config);
+            let fields = resolve_fields::<pngx_client::Correspondent>(&output)?;
+            commands::correspondents::create(
+                client,
+                name,
+                matching_algorithm.map(Into::into),
+                matches,
+                is_insensitive,
+                format,
+                fields.as_ref(),
+            )
+        }
+        CorrespondentsCommand::Update {
+            id_or_name,
+            name,
+            matching_algorithm,
+            matches,
+            is_insensitive,
+            output,
+        } => {
+            let format = resolve_output(&output, config);
+            let fields = resolve_fields::<pngx_client::Correspondent>(&output)?;
+            commands::correspondents::update(
+                client,
+                &id_or_name,
+                name,
+                matching_algorithm.map(Into::into),
+                matches,
+                is_insensitive,
+                format,
+                fields.as_ref(),
+            )
+        }
+        CorrespondentsCommand::Delete { id_or_name, yes } => {
+            confirm_delete("correspondent", &id_or_name, yes)?;
+            commands::correspondents::delete(client, &id_or_name)
+        }
+    }
+}
+
+fn dispatch_document_types(
+    client: &pngx_client::Client,
+    config: &config::ValidConfig,
+    action: Option<DocumentTypesCommand>,
+) -> anyhow::Result<()> {
+    match action.unwrap_or(DocumentTypesCommand::List {
+        output: OutputArgs {
+            output: None,
+            fields: None,
+        },
+    }) {
+        DocumentTypesCommand::List { output } => {
+            let format = resolve_output(&output, config);
+            let fields = resolve_fields::<pngx_client::DocumentType>(&output)?;
+            commands::document_types::list(client, format, fields.as_ref())
+        }
+        DocumentTypesCommand::Create {
+            name,
+            matching_algorithm,
+            matches,
+            is_insensitive,
+            output,
+        } => {
+            let format = resolve_output(&output, config);
+            let fields = resolve_fields::<pngx_client::DocumentType>(&output)?;
+            commands::document_types::create(
+                client,
+                name,
+                matching_algorithm.map(Into::into),
+                matches,
+                is_insensitive,
+                format,
+                fields.as_ref(),
+            )
+        }
+        DocumentTypesCommand::Update {
+            id_or_name,
+            name,
+            matching_algorithm,
+            matches,
+            is_insensitive,
+            output,
+        } => {
+            let format = resolve_output(&output, config);
+            let fields = resolve_fields::<pngx_client::DocumentType>(&output)?;
+            commands::document_types::update(
+                client,
+                &id_or_name,
+                name,
+                matching_algorithm.map(Into::into),
+                matches,
+                is_insensitive,
+                format,
+                fields.as_ref(),
+            )
+        }
+        DocumentTypesCommand::Delete { id_or_name, yes } => {
+            confirm_delete("document type", &id_or_name, yes)?;
+            commands::document_types::delete(client, &id_or_name)
+        }
+    }
+}
+
+fn dispatch_storage_paths(
+    client: &pngx_client::Client,
+    config: &config::ValidConfig,
+    action: Option<StoragePathsCommand>,
+) -> anyhow::Result<()> {
+    match action.unwrap_or(StoragePathsCommand::List {
+        output: OutputArgs {
+            output: None,
+            fields: None,
+        },
+    }) {
+        StoragePathsCommand::List { output } => {
+            let format = resolve_output(&output, config);
+            let fields = resolve_fields::<pngx_client::StoragePath>(&output)?;
+            commands::storage_paths::list(client, format, fields.as_ref())
+        }
+        StoragePathsCommand::Create {
+            name,
+            path,
+            matching_algorithm,
+            matches,
+            is_insensitive,
+            output,
+        } => {
+            let format = resolve_output(&output, config);
+            let fields = resolve_fields::<pngx_client::StoragePath>(&output)?;
+            commands::storage_paths::create(
+                client,
+                name,
+                path,
+                matching_algorithm.map(Into::into),
+                matches,
+                is_insensitive,
+                format,
+                fields.as_ref(),
+            )
+        }
+        StoragePathsCommand::Update {
+            id_or_name,
+            name,
+            path,
+            matching_algorithm,
+            matches,
+            is_insensitive,
+            output,
+        } => {
+            let format = resolve_output(&output, config);
+            let fields = resolve_fields::<pngx_client::StoragePath>(&output)?;
+            commands::storage_paths::update(
+                client,
+                &id_or_name,
+                name,
+                path,
+                matching_algorithm.map(Into::into),
+                matches,
+                is_insensitive,
+                format,
+                fields.as_ref(),
+            )
+        }
+        StoragePathsCommand::Delete { id_or_name, yes } => {
+            confirm_delete("storage path", &id_or_name, yes)?;
+            commands::storage_paths::delete(client, &id_or_name)
+        }
+    }
+}
+
+/// Prompt for delete confirmation when stdin is a TTY; in non-interactive
+/// contexts, require `--yes`.
+fn confirm_delete(entity: &str, id_or_name: &str, yes: bool) -> anyhow::Result<()> {
+    use std::io::{self, IsTerminal, Write};
+
+    if yes {
+        return Ok(());
+    }
+    if io::stdin().is_terminal() {
+        eprint!("Delete {entity} '{id_or_name}'? [y/N] ");
+        io::stderr().flush().ok();
+        let mut response = String::new();
+        io::stdin().read_line(&mut response)?;
+        if matches!(response.trim(), "y" | "Y" | "yes") {
+            Ok(())
+        } else {
+            anyhow::bail!("delete aborted");
+        }
+    } else {
+        anyhow::bail!(
+            "refusing to delete {entity} '{id_or_name}' without --yes in a non-interactive context"
+        );
+    }
+}
+
 /// Map an error to a machine-readable error code string.
 fn error_code(err: &anyhow::Error) -> &'static str {
     if let Some(api_err) = err.downcast_ref::<ApiError>() {
         match api_err {
             ApiError::Unauthorized => "unauthorized",
             ApiError::NotFound => "not_found",
+            ApiError::BadRequest { .. } => "bad_request",
+            ApiError::ValidationError { .. } => "validation_error",
             ApiError::InvalidUrl(_) => "invalid_url",
             ApiError::Io(_) => "io_error",
             ApiError::Network(_) => "network_error",
@@ -385,7 +867,9 @@ fn error_code(err: &anyhow::Error) -> &'static str {
 fn exit_code_for_error(err: &anyhow::Error) -> ExitCode {
     if let Some(api_err) = err.downcast_ref::<ApiError>() {
         match api_err {
-            ApiError::Unauthorized => ExitCode::from(2),
+            ApiError::Unauthorized
+            | ApiError::BadRequest { .. }
+            | ApiError::ValidationError { .. } => ExitCode::from(2),
             ApiError::NotFound => ExitCode::from(3),
             ApiError::InvalidUrl(_)
             | ApiError::Io(_)

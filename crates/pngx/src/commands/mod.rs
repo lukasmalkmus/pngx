@@ -5,10 +5,51 @@ pub mod documents;
 pub mod inbox;
 pub mod mcp;
 pub mod search;
+pub mod storage_paths;
 pub mod tags;
 pub mod version;
 
+use pngx_client::MatchingAlgorithm;
+
 use crate::output::{FieldFilter, OutputFormat, Tabular};
+
+/// clap-compatible wrapper over [`MatchingAlgorithm`] so it can be used
+/// directly as a `--matching-algorithm` flag value.
+#[derive(Debug, Clone, Copy, clap::ValueEnum)]
+#[clap(rename_all = "kebab-case")]
+pub enum MatchingAlgorithmArg {
+    None,
+    Any,
+    All,
+    Literal,
+    Regex,
+    Fuzzy,
+    Auto,
+}
+
+impl From<MatchingAlgorithmArg> for MatchingAlgorithm {
+    fn from(value: MatchingAlgorithmArg) -> Self {
+        match value {
+            MatchingAlgorithmArg::None => Self::None,
+            MatchingAlgorithmArg::Any => Self::Any,
+            MatchingAlgorithmArg::All => Self::All,
+            MatchingAlgorithmArg::Literal => Self::Literal,
+            MatchingAlgorithmArg::Regex => Self::Regex,
+            MatchingAlgorithmArg::Fuzzy => Self::Fuzzy,
+            MatchingAlgorithmArg::Auto => Self::Auto,
+        }
+    }
+}
+
+/// Print a single taxonomy entity (freshly created or updated) using the
+/// configured output format, respecting `-F`/`--fields`.
+pub fn print_one<T: Tabular + serde::Serialize + crate::output::FieldNames>(
+    format: OutputFormat,
+    item: &T,
+    fields: Option<&FieldFilter>,
+) -> anyhow::Result<()> {
+    print_all(format, std::slice::from_ref(item), fields)
+}
 
 pub fn print_results<T: Tabular + serde::Serialize>(
     format: OutputFormat,

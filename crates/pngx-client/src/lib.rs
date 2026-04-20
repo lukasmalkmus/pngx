@@ -24,5 +24,7 @@ pub use jiff;
 pub use client::{Client, ClientBuilder};
 pub use error::ApiError;
 pub use types::{
-    Correspondent, Document, DocumentType, DocumentVersion, PaginatedResponse, Tag, UiSettings,
+    Correspondent, CorrespondentCreate, CorrespondentUpdate, Document, DocumentType,
+    DocumentTypeCreate, DocumentTypeUpdate, DocumentVersion, MatchingAlgorithm, PaginatedResponse,
+    StoragePath, StoragePathCreate, StoragePathUpdate, Tag, TagCreate, TagUpdate, UiSettings,
 };

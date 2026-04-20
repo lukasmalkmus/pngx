@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use thiserror::Error;
 
 /// Errors returned by the Paperless-ngx API client.
@@ -10,6 +12,24 @@ pub enum ApiError {
     /// The requested resource was not found.
     #[error("not found")]
     NotFound,
+
+    /// The server rejected the request with a 400 status. The body is
+    /// surfaced verbatim so callers can relay Paperless's own message.
+    #[error("bad request: {message}")]
+    BadRequest {
+        /// Message extracted from the server response body.
+        message: String,
+    },
+
+    /// The server rejected the request with a 422 (or 400-with-DRF-field-
+    /// errors) response. Field errors are preserved so callers can render
+    /// a per-field explanation.
+    #[error("validation error: {}", format_field_errors(field_errors))]
+    ValidationError {
+        /// Map of field name → list of error messages, as returned by
+        /// Django REST Framework.
+        field_errors: BTreeMap<String, Vec<String>>,
+    },
 
     /// The base URL could not be parsed.
     #[error("invalid URL: {0}")]
@@ -72,4 +92,13 @@ impl From<ureq::Error> for ApiError {
             other => ApiError::Network(Box::new(other)),
         }
     }
+}
+
+/// Render a validation-error field map as `field1: msg1, msg2; field2: msg3`.
+fn format_field_errors(errors: &BTreeMap<String, Vec<String>>) -> String {
+    errors
+        .iter()
+        .map(|(field, msgs)| format!("{field}: {}", msgs.join(", ")))
+        .collect::<Vec<_>>()
+        .join("; ")
 }

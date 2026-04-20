@@ -1,12 +1,17 @@
+use std::collections::BTreeMap;
 use std::fmt;
 use std::io::{self, Write};
 use std::time::Duration;
 
+use serde::Serialize;
+use serde::de::DeserializeOwned;
 use url::Url;
 
 use crate::error::ApiError;
 use crate::types::{
-    Correspondent, Document, DocumentType, DocumentVersion, PaginatedResponse, Tag, UiSettings,
+    Correspondent, CorrespondentCreate, CorrespondentUpdate, Document, DocumentType,
+    DocumentTypeCreate, DocumentTypeUpdate, DocumentVersion, PaginatedResponse, StoragePath,
+    StoragePathCreate, StoragePathUpdate, Tag, TagCreate, TagUpdate, UiSettings,
 };
 
 const DEFAULT_PAGE_SIZE: u32 = 100;
@@ -351,7 +356,7 @@ impl Client {
         Ok(self.base_url.join(path)?)
     }
 
-    fn get<T: serde::de::DeserializeOwned>(&self, url: &Url) -> Result<T, ApiError> {
+    fn get<T: DeserializeOwned>(&self, url: &Url) -> Result<T, ApiError> {
         let mut resp = self
             .agent
             .get(url.as_str())
@@ -360,6 +365,308 @@ impl Client {
             .call()?;
         let body: T = resp.body_mut().read_json()?;
         Ok(body)
+    }
+
+    fn post_json<T: Serialize, R: DeserializeOwned>(
+        &self,
+        path: &str,
+        body: &T,
+    ) -> Result<R, ApiError> {
+        let url = self.url(path)?;
+        let resp = self
+            .agent
+            .post(url.as_str())
+            .config()
+            .http_status_as_error(false)
+            .build()
+            .header("Accept", "application/json; version=9")
+            .header("Authorization", &format!("Token {}", self.token))
+            .send_json(body)?;
+        decode_body_json(resp)
+    }
+
+    fn patch_json<T: Serialize, R: DeserializeOwned>(
+        &self,
+        path: &str,
+        body: &T,
+    ) -> Result<R, ApiError> {
+        let url = self.url(path)?;
+        let resp = self
+            .agent
+            .patch(url.as_str())
+            .config()
+            .http_status_as_error(false)
+            .build()
+            .header("Accept", "application/json; version=9")
+            .header("Authorization", &format!("Token {}", self.token))
+            .send_json(body)?;
+        decode_body_json(resp)
+    }
+
+    fn delete_path(&self, path: &str) -> Result<(), ApiError> {
+        let url = self.url(path)?;
+        let resp = self
+            .agent
+            .delete(url.as_str())
+            .config()
+            .http_status_as_error(false)
+            .build()
+            .header("Accept", "application/json; version=9")
+            .header("Authorization", &format!("Token {}", self.token))
+            .call()?;
+        expect_no_content(resp)
+    }
+
+    // --- Tag CRUD ----------------------------------------------------------
+
+    /// Creates a new tag.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ApiError::ValidationError`] if the server rejects the
+    /// payload (e.g. duplicate name).
+    pub fn create_tag(&self, payload: &TagCreate) -> Result<Tag, ApiError> {
+        self.post_json("api/tags/", payload)
+    }
+
+    /// Partially updates a tag by ID.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ApiError::NotFound`] if the tag does not exist.
+    pub fn update_tag(&self, id: u64, payload: &TagUpdate) -> Result<Tag, ApiError> {
+        self.patch_json(&format!("api/tags/{id}/"), payload)
+    }
+
+    /// Deletes a tag by ID.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ApiError::NotFound`] if the tag does not exist.
+    pub fn delete_tag(&self, id: u64) -> Result<(), ApiError> {
+        self.delete_path(&format!("api/tags/{id}/"))
+    }
+
+    // --- Correspondent CRUD ------------------------------------------------
+
+    /// Creates a new correspondent.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ApiError::ValidationError`] if the server rejects the payload.
+    pub fn create_correspondent(
+        &self,
+        payload: &CorrespondentCreate,
+    ) -> Result<Correspondent, ApiError> {
+        self.post_json("api/correspondents/", payload)
+    }
+
+    /// Partially updates a correspondent by ID.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ApiError::NotFound`] if the correspondent does not exist.
+    pub fn update_correspondent(
+        &self,
+        id: u64,
+        payload: &CorrespondentUpdate,
+    ) -> Result<Correspondent, ApiError> {
+        self.patch_json(&format!("api/correspondents/{id}/"), payload)
+    }
+
+    /// Deletes a correspondent by ID.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ApiError::NotFound`] if the correspondent does not exist.
+    pub fn delete_correspondent(&self, id: u64) -> Result<(), ApiError> {
+        self.delete_path(&format!("api/correspondents/{id}/"))
+    }
+
+    // --- Document type CRUD ------------------------------------------------
+
+    /// Creates a new document type.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ApiError::ValidationError`] if the server rejects the payload.
+    pub fn create_document_type(
+        &self,
+        payload: &DocumentTypeCreate,
+    ) -> Result<DocumentType, ApiError> {
+        self.post_json("api/document_types/", payload)
+    }
+
+    /// Partially updates a document type by ID.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ApiError::NotFound`] if the document type does not exist.
+    pub fn update_document_type(
+        &self,
+        id: u64,
+        payload: &DocumentTypeUpdate,
+    ) -> Result<DocumentType, ApiError> {
+        self.patch_json(&format!("api/document_types/{id}/"), payload)
+    }
+
+    /// Deletes a document type by ID.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ApiError::NotFound`] if the document type does not exist.
+    pub fn delete_document_type(&self, id: u64) -> Result<(), ApiError> {
+        self.delete_path(&format!("api/document_types/{id}/"))
+    }
+
+    // --- Storage path read + CRUD ------------------------------------------
+
+    /// Fetches the first page of storage paths.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error on network failure or authentication issues.
+    pub fn storage_paths(&self) -> Result<PaginatedResponse<StoragePath>, ApiError> {
+        let mut url = self.url("api/storage_paths/")?;
+        url.query_pairs_mut()
+            .append_pair("page_size", &self.page_size.to_string());
+        self.get(&url)
+    }
+
+    /// Fetches storage paths across pages up to `limit`.
+    ///
+    /// Pass `None` to fetch all storage paths. Returns the collected items
+    /// and the total count reported by the server.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error on network failure or authentication issues.
+    pub fn collect_storage_paths(
+        &self,
+        limit: Option<usize>,
+    ) -> Result<(Vec<StoragePath>, u64), ApiError> {
+        let mut url = self.url("api/storage_paths/")?;
+        url.query_pairs_mut()
+            .append_pair("page_size", &self.page_size.to_string());
+        self.paginate(&url, limit)
+    }
+
+    /// Creates a new storage path.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ApiError::ValidationError`] if the server rejects the payload.
+    pub fn create_storage_path(
+        &self,
+        payload: &StoragePathCreate,
+    ) -> Result<StoragePath, ApiError> {
+        self.post_json("api/storage_paths/", payload)
+    }
+
+    /// Partially updates a storage path by ID.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ApiError::NotFound`] if the storage path does not exist.
+    pub fn update_storage_path(
+        &self,
+        id: u64,
+        payload: &StoragePathUpdate,
+    ) -> Result<StoragePath, ApiError> {
+        self.patch_json(&format!("api/storage_paths/{id}/"), payload)
+    }
+
+    /// Deletes a storage path by ID.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ApiError::NotFound`] if the storage path does not exist.
+    pub fn delete_storage_path(&self, id: u64) -> Result<(), ApiError> {
+        self.delete_path(&format!("api/storage_paths/{id}/"))
+    }
+}
+
+// --- Write-response decoding ---------------------------------------------
+//
+// Write endpoints are called with `http_status_as_error(false)` so we can
+// read the body on 4xx responses. These helpers centralize that decoding.
+
+fn decode_body_json<R: DeserializeOwned>(
+    resp: ureq::http::Response<ureq::Body>,
+) -> Result<R, ApiError> {
+    let (parts, body) = resp.into_parts();
+    let status = parts.status.as_u16();
+    if (200..300).contains(&status) {
+        let mut body = body;
+        Ok(body.read_json()?)
+    } else {
+        Err(status_to_error(status, body))
+    }
+}
+
+fn expect_no_content(resp: ureq::http::Response<ureq::Body>) -> Result<(), ApiError> {
+    let (parts, body) = resp.into_parts();
+    let status = parts.status.as_u16();
+    if (200..300).contains(&status) {
+        Ok(())
+    } else {
+        Err(status_to_error(status, body))
+    }
+}
+
+fn status_to_error(status: u16, mut body: ureq::Body) -> ApiError {
+    match status {
+        401 | 403 => ApiError::Unauthorized,
+        404 => ApiError::NotFound,
+        400 | 422 => parse_write_error_body(body.read_to_string().unwrap_or_default()),
+        _ => ApiError::Server {
+            status,
+            message: body
+                .read_to_string()
+                .unwrap_or_else(|_| "unexpected status".to_string()),
+        },
+    }
+}
+
+/// Try to parse a DRF error body into [`ApiError::ValidationError`]; fall
+/// back to [`ApiError::BadRequest`] with the raw body as the message when
+/// the shape is unfamiliar.
+fn parse_write_error_body(body: String) -> ApiError {
+    if body.is_empty() {
+        return ApiError::BadRequest {
+            message: "empty response body".to_string(),
+        };
+    }
+    match serde_json::from_str::<BTreeMap<String, serde_json::Value>>(&body) {
+        Ok(map) => {
+            let mut field_errors: BTreeMap<String, Vec<String>> = BTreeMap::new();
+            for (field, value) in map {
+                match value {
+                    serde_json::Value::Array(items) => {
+                        let msgs = items
+                            .into_iter()
+                            .map(|v| match v {
+                                serde_json::Value::String(s) => s,
+                                other => other.to_string(),
+                            })
+                            .collect();
+                        field_errors.insert(field, msgs);
+                    }
+                    serde_json::Value::String(s) => {
+                        field_errors.insert(field, vec![s]);
+                    }
+                    other => {
+                        field_errors.insert(field, vec![other.to_string()]);
+                    }
+                }
+            }
+            if field_errors.is_empty() {
+                ApiError::BadRequest { message: body }
+            } else {
+                ApiError::ValidationError { field_errors }
+            }
+        }
+        Err(_) => ApiError::BadRequest { message: body },
     }
 }
 
@@ -419,6 +726,7 @@ mod tests {
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
     use super::*;
+    use crate::types::MatchingAlgorithm;
 
     async fn setup() -> (MockServer, Client) {
         let server = MockServer::start().await;
@@ -882,5 +1190,263 @@ mod tests {
             .server_version()
             .expect_err("should return unauthorized error");
         assert!(matches!(err, ApiError::Unauthorized));
+    }
+
+    // --- Write helpers: taxonomy CRUD ------------------------------------
+
+    #[tokio::test]
+    async fn test_create_tag_happy_path() {
+        use wiremock::matchers::body_json_string;
+
+        let (server, client) = setup().await;
+        let request_body = serde_json::json!({
+            "name": "Steuer",
+            "color": "#c02020",
+            "matching_algorithm": 1,
+            "is_inbox_tag": false
+        });
+        let response_body = serde_json::json!({
+            "id": 42,
+            "name": "Steuer",
+            "slug": "steuer",
+            "color": "#c02020",
+            "is_inbox_tag": false,
+            "document_count": 0
+        });
+
+        Mock::given(method("POST"))
+            .and(path("/api/tags/"))
+            .and(header("Authorization", "Token test-token"))
+            .and(header("Accept", "application/json; version=9"))
+            .and(body_json_string(request_body.to_string()))
+            .respond_with(ResponseTemplate::new(201).set_body_json(&response_body))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let payload = TagCreate {
+            name: "Steuer".to_string(),
+            color: Some("#c02020".to_string()),
+            matching_algorithm: Some(MatchingAlgorithm::Any),
+            is_inbox_tag: Some(false),
+            ..Default::default()
+        };
+        let tag = client
+            .create_tag(&payload)
+            .expect("create_tag should succeed");
+        assert_eq!(tag.id, 42);
+        assert_eq!(tag.name, "Steuer");
+    }
+
+    #[tokio::test]
+    async fn test_create_tag_omits_none_fields() {
+        // Verify that `Option::None` fields do not appear in the JSON body —
+        // Paperless would interpret explicit `null` differently from absent.
+        use wiremock::matchers::body_json_string;
+
+        let (server, client) = setup().await;
+        // Only `name` should be sent when other fields are None.
+        let request_body = serde_json::json!({"name": "Minimal"});
+        let response_body = serde_json::json!({
+            "id": 1,
+            "name": "Minimal",
+            "slug": "minimal",
+            "color": null,
+            "is_inbox_tag": false,
+            "document_count": 0
+        });
+
+        Mock::given(method("POST"))
+            .and(path("/api/tags/"))
+            .and(body_json_string(request_body.to_string()))
+            .respond_with(ResponseTemplate::new(201).set_body_json(&response_body))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let payload = TagCreate {
+            name: "Minimal".to_string(),
+            ..Default::default()
+        };
+        client
+            .create_tag(&payload)
+            .expect("create_tag should succeed");
+    }
+
+    #[tokio::test]
+    async fn test_update_correspondent_partial() {
+        use wiremock::matchers::body_json_string;
+
+        let (server, client) = setup().await;
+        // Only `matches` should be sent; `name`, `matching_algorithm`, etc.
+        // should be absent.
+        let request_body = serde_json::json!({"matches": "apple.com"});
+        let response_body = serde_json::json!({
+            "id": 7,
+            "name": "Apple",
+            "slug": "apple",
+            "document_count": 3
+        });
+
+        Mock::given(method("PATCH"))
+            .and(path("/api/correspondents/7/"))
+            .and(header("Authorization", "Token test-token"))
+            .and(body_json_string(request_body.to_string()))
+            .respond_with(ResponseTemplate::new(200).set_body_json(&response_body))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let payload = CorrespondentUpdate {
+            matches: Some("apple.com".to_string()),
+            ..Default::default()
+        };
+        let updated = client
+            .update_correspondent(7, &payload)
+            .expect("update_correspondent should succeed");
+        assert_eq!(updated.name, "Apple");
+    }
+
+    #[tokio::test]
+    async fn test_delete_document_type_no_content() {
+        let (server, client) = setup().await;
+
+        Mock::given(method("DELETE"))
+            .and(path("/api/document_types/9/"))
+            .and(header("Authorization", "Token test-token"))
+            .respond_with(ResponseTemplate::new(204))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        client
+            .delete_document_type(9)
+            .expect("delete_document_type should succeed");
+    }
+
+    #[tokio::test]
+    async fn test_delete_tag_not_found() {
+        let (server, client) = setup().await;
+
+        Mock::given(method("DELETE"))
+            .and(path("/api/tags/999/"))
+            .respond_with(ResponseTemplate::new(404))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let err = client
+            .delete_tag(999)
+            .expect_err("delete_tag should fail on 404");
+        assert!(matches!(err, ApiError::NotFound), "got: {err:?}");
+    }
+
+    #[tokio::test]
+    async fn test_create_tag_validation_error() {
+        let (server, client) = setup().await;
+        let error_body = serde_json::json!({
+            "name": ["tag with this name already exists"]
+        });
+
+        Mock::given(method("POST"))
+            .and(path("/api/tags/"))
+            .respond_with(ResponseTemplate::new(400).set_body_json(&error_body))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let payload = TagCreate {
+            name: "Duplicate".to_string(),
+            ..Default::default()
+        };
+        let err = client
+            .create_tag(&payload)
+            .expect_err("should fail with 400");
+        match err {
+            ApiError::ValidationError { field_errors } => {
+                assert_eq!(
+                    field_errors.get("name").map(Vec::as_slice),
+                    Some(&["tag with this name already exists".to_string()][..])
+                );
+            }
+            other => panic!("expected ValidationError, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_create_tag_bad_request_non_json() {
+        let (server, client) = setup().await;
+
+        Mock::given(method("POST"))
+            .and(path("/api/tags/"))
+            .respond_with(ResponseTemplate::new(400).set_body_string("plain text error"))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let payload = TagCreate {
+            name: "X".to_string(),
+            ..Default::default()
+        };
+        let err = client.create_tag(&payload).expect_err("should fail");
+        match err {
+            ApiError::BadRequest { message } => assert_eq!(message, "plain text error"),
+            other => panic!("expected BadRequest, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_matching_algorithm_serde_is_integer() {
+        // Guard the serde representation: MatchingAlgorithm must wire as an
+        // integer, not a string; Paperless's API expects u8.
+        for (variant, expected) in [
+            (MatchingAlgorithm::None, 0u8),
+            (MatchingAlgorithm::Any, 1),
+            (MatchingAlgorithm::All, 2),
+            (MatchingAlgorithm::Literal, 3),
+            (MatchingAlgorithm::Regex, 4),
+            (MatchingAlgorithm::Fuzzy, 5),
+            (MatchingAlgorithm::Auto, 6),
+        ] {
+            let json = serde_json::to_string(&variant).unwrap();
+            assert_eq!(json, expected.to_string(), "variant {variant:?}");
+            let round_trip: MatchingAlgorithm = serde_json::from_str(&json).unwrap();
+            assert_eq!(round_trip, variant);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_storage_paths_list() {
+        let (server, client) = setup().await;
+        let body = serde_json::json!({
+            "count": 1,
+            "next": null,
+            "previous": null,
+            "results": [{
+                "id": 3,
+                "name": "Steuer",
+                "slug": "steuer",
+                "path": "{{ correspondent }}/{{ created_year }}",
+                "document_count": 12
+            }]
+        });
+
+        Mock::given(method("GET"))
+            .and(path("/api/storage_paths/"))
+            .and(header("Authorization", "Token test-token"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(&body))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let result = client
+            .storage_paths()
+            .expect("storage_paths should succeed");
+        assert_eq!(result.count, 1);
+        assert_eq!(result.results[0].name, "Steuer");
+        assert_eq!(
+            result.results[0].path,
+            "{{ correspondent }}/{{ created_year }}"
+        );
     }
 }
