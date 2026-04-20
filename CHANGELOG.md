@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Ship `bin/pngx` shim so the Claude Code plugin works without a separately
+  installed `pngx` binary. The shim prefers any user-installed `pngx` on
+  `PATH`; otherwise it reuses (or lazily downloads) a plugin-managed copy
+  from GitHub releases matching the plugin's declared version.
+- Add `SessionStart` hook (`hooks/ensure-binary.sh`) that keeps the
+  plugin-managed binary in sync in the background, never blocking session
+  startup.
+
 ## [0.7.1] - 2026-03-07
 
 ### Fixed

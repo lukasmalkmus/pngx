@@ -1,0 +1,132 @@
+#!/usr/bin/env bash
+#
+# Claude Code plugin shim for `pngx`.
+#
+# Resolution order:
+#   1) Any user-installed `pngx` already on PATH (cargo / brew / scoop /
+#      manual) wins. The shim's own directory is stripped from PATH before
+#      the lookup so we can't re-exec ourselves.
+#   2) A plugin-managed binary at ${CLAUDE_PLUGIN_DATA}/bin/pngx whose
+#      recorded version matches .claude-plugin/plugin.json.
+#   3) Download the right release archive from GitHub into
+#      ${CLAUDE_PLUGIN_DATA}/bin, unpack, chmod +x, exec.
+#
+# On any failure the shim prints a clear install hint to stderr and exits
+# 127, mirroring "command not found" behaviour.
+#
+# Design notes:
+# - jq is preferred for reading plugin.json but is not required. A pure-bash
+#   sed fallback keeps the shim working on stock macOS, Alpine, and slim
+#   Linux containers where jq is not preinstalled.
+# - Only Linux and macOS targets are auto-downloaded. Windows users should
+#   install `pngx` via cargo/scoop/winget; the first resolution branch
+#   (user-installed PATH) handles them.
+# - First-session race: two concurrent session starts may both trigger the
+#   download. We accept the wasted bandwidth; the atomic mv at the end means
+#   only one complete binary ever lands, so there is no corrupt-state window.
+
+set -euo pipefail
+
+self_dir="$(cd "$(dirname "$0")" && pwd)"
+plugin_root="${CLAUDE_PLUGIN_ROOT:-$(cd "$self_dir/.." && pwd)}"
+data_dir="${CLAUDE_PLUGIN_DATA:-$HOME/.claude/plugins/data/pngx}"
+
+# --- 1) Prefer a user-installed pngx --------------------------------------
+
+clean_path="$(echo "$PATH" | tr ':' '\n' | grep -vFx "$self_dir" | tr '\n' ':')"
+if real_pngx="$(PATH="$clean_path" command -v pngx 2>/dev/null)"; then
+  exec "$real_pngx" "$@"
+fi
+
+# --- 2) Re-use the plugin-managed download if versions match --------------
+
+plugin_json="$plugin_root/.claude-plugin/plugin.json"
+if [[ ! -f "$plugin_json" ]]; then
+  echo "pngx: plugin.json not found at $plugin_json" >&2
+  exit 127
+fi
+
+# Read .version from plugin.json. Prefer jq when available; fall back to a
+# pure-bash sed extractor so the shim works on machines without jq.
+if command -v jq >/dev/null 2>&1; then
+  expected_version="$(jq -r '.version // empty' "$plugin_json" 2>/dev/null || true)"
+else
+  expected_version="$(
+    sed -nE 's/.*"version"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p' \
+      "$plugin_json" | head -n1
+  )"
+fi
+
+if [[ -z "$expected_version" ]]; then
+  echo "pngx: could not read version from $plugin_json" >&2
+  exit 127
+fi
+
+mkdir -p "$data_dir/bin"
+installed_binary="$data_dir/bin/pngx"
+installed_version_file="$data_dir/bin/pngx.version"
+
+if [[ -x "$installed_binary" ]] \
+   && [[ "$(cat "$installed_version_file" 2>/dev/null)" == "$expected_version" ]]; then
+  exec "$installed_binary" "$@"
+fi
+
+# --- 3) Download the right release asset ----------------------------------
+
+case "$(uname -s)/$(uname -m)" in
+  Darwin/arm64)   target="aarch64-apple-darwin" ;;
+  Darwin/x86_64)  target="x86_64-apple-darwin" ;;
+  Linux/x86_64)   target="x86_64-unknown-linux-gnu" ;;
+  Linux/aarch64)  target="aarch64-unknown-linux-gnu" ;;
+  *)
+    cat >&2 <<EOF
+pngx: unsupported platform $(uname -s)/$(uname -m).
+  Install manually with one of:
+    cargo install pngx --locked
+    brew install lukasmalkmus/tap/pngx
+    scoop install pngx
+EOF
+    exit 127
+    ;;
+esac
+
+archive="pngx-${target}.tar.gz"
+url="https://github.com/lukasmalkmus/pngx/releases/download/v${expected_version}/${archive}"
+
+echo "pngx: fetching ${archive} from ${url}" >&2
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+if ! curl -fsSL -o "$tmp/$archive" "$url"; then
+  cat >&2 <<EOF
+pngx: failed to download ${url}
+  Install manually with:
+    cargo install pngx --locked
+  or:
+    brew install lukasmalkmus/tap/pngx
+EOF
+  exit 127
+fi
+tar xzf "$tmp/$archive" -C "$tmp"
+
+# Extracted archive may contain a bare `pngx` or a `pngx` inside a subdir.
+if [[ -x "$tmp/pngx" ]]; then
+  mv "$tmp/pngx" "$installed_binary"
+else
+  found="$(find "$tmp" -type f -name pngx -perm -u+x | head -n 1)"
+  if [[ -z "$found" ]]; then
+    echo "pngx: extracted archive did not contain an executable named 'pngx'" >&2
+    exit 127
+  fi
+  mv "$found" "$installed_binary"
+fi
+chmod +x "$installed_binary"
+echo "$expected_version" > "$installed_version_file"
+
+# macOS Gatekeeper: strip the quarantine attribute on the fresh binary so
+# users don't hit "cannot be opened because the developer cannot be
+# verified". Best-effort; silently skip if xattr isn't available.
+if command -v xattr >/dev/null 2>&1; then
+  xattr -d com.apple.quarantine "$installed_binary" 2>/dev/null || true
+fi
+
+exec "$installed_binary" "$@"

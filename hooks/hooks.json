@@ -1,5 +1,5 @@
 {
-  "description": "Nudge agents to use the paperless skill for pngx commands",
+  "description": "Skill nudge + binary-sync hooks for the pngx plugin",
   "hooks": {
     "PostToolUse": [
       {
@@ -8,6 +8,16 @@
           {
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/hooks/nudge-skill.sh"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/ensure-binary.sh"
           }
         ]
       }
