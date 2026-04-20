@@ -43,12 +43,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `pngx documents untag IDS... TAGS...`, and a generic
   `pngx documents bulk METHOD --ids ... --params '{...}'` escape hatch.
 
+- Mirror every new CLI write command as an MCP tool: `documents_upload`,
+  `documents_update`, `documents_delete`, `documents_tag`,
+  `documents_untag`, `documents_bulk_edit`, plus `{tags,correspondents,
+  document_types,storage_paths}_{create,update,delete}` and a
+  `storage_paths` read tool. Writes carry `readOnlyHint: false`; every
+  `*_delete` tool and `documents_bulk_edit` additionally carry
+  `destructiveHint: true`.
+
 ### Changed
 
 - Restructure the `tags`, `correspondents`, and `document-types` commands
   into subcommand groups. Bare `pngx tags`, `pngx correspondents`, and
   `pngx document-types` still list (default action); output flags (`-o`,
   `-F`) now live on the explicit `list` subcommand.
+- Narrow the plugin's pre-allowed `settings.json` permissions to read
+  verbs only. Every mutating `pngx` verb now appears in the `ask` list —
+  Claude Code prompts for permission on each invocation rather than
+  pre-approving. Users may still promote commands to `allow` in their own
+  runtime settings.
+- Tighten `skills/paperless/SKILL.md` `allowed-tools` frontmatter to an
+  explicit list of read verbs. Writes are documented in prose and rely on
+  the `ask` list for per-call approval.
 
 ## [0.7.1] - 2026-03-07
 

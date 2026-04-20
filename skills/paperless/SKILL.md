@@ -1,15 +1,18 @@
 ---
 name: paperless
 description: |
-  Paperless-ngx document management via the pngx CLI. Use when searching,
-  listing, counting, filtering, downloading, or retrieving documents from
-  Paperless. Triggers on: "paperless", "documents", "invoices", "receipts",
-  "find document", "search documents", "how many documents", "download document",
-  "document type", "correspondent", "tag", "inbox", "unprocessed", or any
-  document management query.
+  Paperless-ngx document management via the pngx CLI and MCP server.
+  Use when searching, listing, counting, filtering, downloading, retrieving,
+  **uploading**, **tagging**, **deleting**, or otherwise managing documents,
+  tags, correspondents, document types, or storage paths in Paperless.
+  Triggers on: "paperless", "documents", "invoices", "receipts", "find",
+  "search", "count", "download", "upload", "tag", "untag", "archive",
+  "file this", "ablegen", "hochladen", "create tag", "create correspondent",
+  "delete document", "inbox", "unprocessed", "document type", or any
+  document-management query.
 user-invocable: true
 argument-hint: <search-query>
-allowed-tools: Bash(pngx *)
+allowed-tools: Bash(pngx search:*), Bash(pngx inbox:*), Bash(pngx documents list:*), Bash(pngx documents get:*), Bash(pngx documents content:*), Bash(pngx documents open:*), Bash(pngx documents download:*), Bash(pngx tags), Bash(pngx tags list:*), Bash(pngx correspondents), Bash(pngx correspondents list:*), Bash(pngx document-types), Bash(pngx document-types list:*), Bash(pngx storage-paths), Bash(pngx storage-paths list:*), Bash(pngx version:*), Bash(pngx auth status:*), Bash(pngx mcp:*), Read
 memory: user
 ---
 
@@ -316,8 +319,9 @@ on stderr:
 {"error": "document not found", "code": "not_found"}
 ```
 
-**Error codes:** `unauthorized`, `not_found`, `invalid_url`, `io_error`,
-`network_error`, `timeout`, `scheme_mismatch`, `server_error`,
+**Error codes:** `unauthorized`, `not_found`, `bad_request`,
+`validation_error`, `task_pending`, `task_unknown`, `invalid_url`,
+`io_error`, `network_error`, `timeout`, `scheme_mismatch`, `server_error`,
 `deserialization_error`, `config_error`, `usage_error`, `internal_error`
 
 **Exit codes:** 0 (success), 1 (server/deserialization), 2 (usage/unauthorized),
@@ -358,5 +362,75 @@ The server communicates over stdio using JSON-RPC (MCP protocol).
 | `document_types` | List all document types | (none) |
 | `version` | Get server version | (none) |
 
-All tools are read-only. Document metadata (correspondent, type, tags) is
-resolved to human-readable names. The resolver is cached for 5 minutes.
+Read tools carry `readOnlyHint: true`. Document metadata (correspondent,
+type, tags) is resolved to human-readable names. The resolver is cached
+for 5 minutes.
+
+## Write operations (permission-prompted)
+
+pngx also supports write operations. These are **not pre-allowed** in this
+skill's `allowed-tools`; Claude Code prompts for permission on every call.
+When a user says "upload", "tag this document", "create a correspondent",
+"delete document X", etc., draft the command, confirm the parameters, and
+run it. The permission prompt is the safety net — do not reply "I have
+no tools for that."
+
+### Documents
+
+```sh
+# Upload a file; with --wait, waits for consumption and prints the new
+# document ID. Without --wait, prints the task UUID for async polling.
+pngx documents upload invoice.pdf \
+  --correspondent "Apple" \
+  --document-type "Rechnung" \
+  --tags "Steuer,Hardware" \
+  --created 2026-01-15 \
+  --wait
+
+# Update metadata (title, correspondent, doctype, storage path, tags).
+# --add-tag and --remove-tag route through bulk_edit for server-side
+# atomicity (preferred over --tags for concurrent-safe edits).
+pngx documents update 42 --correspondent "Apple" --add-tag Steuer
+
+# Delete document(s) (requires --yes in non-interactive contexts).
+pngx documents delete 42 --yes
+
+# Bulk tag / untag across many documents (atomic per tag server-side).
+pngx documents tag 1 2 3 Steuer Hardware
+pngx documents untag 1 2 3 Old
+
+# Escape hatch: any bulk_edit method.
+pngx documents bulk set_correspondent --ids 1,2,3 --params '{"correspondent":42}'
+```
+
+### Taxonomy
+
+```sh
+# Tags
+pngx tags create "Steuer" --color "#c02020" --matching-algorithm any
+pngx tags update "Steuer" --color "#ff0000"
+pngx tags delete "Steuer" --yes
+
+# Correspondents
+pngx correspondents create "Apple" --match "apple.com" --matching-algorithm any
+pngx correspondents update "Apple" --match "*.apple.com"
+pngx correspondents delete "Apple" --yes
+
+# Document types
+pngx document-types create "Rechnung"
+pngx document-types delete 5 --yes
+
+# Storage paths
+pngx storage-paths create "Steuer" "{{ correspondent }}/{{ created_year }}"
+```
+
+Name-or-ID resolution: `--correspondent Apple` and `--correspondent 42`
+both work. Ambiguous names produce a candidate list and exit 2; unknown
+names hint at creating the entity first.
+
+### MCP write tools
+
+Every CLI write command has a matching MCP tool. Writes carry
+`readOnlyHint: false`; deletes and `documents_bulk_edit` additionally
+carry `destructiveHint: true`. Agents using the MCP interface see the
+same permission prompt behavior as Bash commands.
