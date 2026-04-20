@@ -51,6 +51,23 @@ pub enum ApiError {
     #[error("failed to deserialize response: {0}")]
     Deserialization(#[from] serde_json::Error),
 
+    /// A document upload task is still processing when `--wait` timed out.
+    /// Callers can poll `/api/tasks/?task_id=<uuid>` themselves to recover.
+    #[error("upload still pending; task id: {task_uuid}")]
+    TaskPending {
+        /// Celery task UUID returned by the upload endpoint.
+        task_uuid: String,
+    },
+
+    /// A document upload task's state cannot be determined — the server
+    /// repeatedly returned an empty task list, which usually means the task
+    /// completed and was reaped by Celery's result expiry.
+    #[error("upload task not visible after repeated polls; task id: {task_uuid}")]
+    TaskUnknown {
+        /// Celery task UUID returned by the upload endpoint.
+        task_uuid: String,
+    },
+
     /// The server returned a pagination URL with a different scheme than
     /// the configured base URL, typically `http` instead of `https`. This
     /// usually means the server is behind a reverse proxy that terminates TLS

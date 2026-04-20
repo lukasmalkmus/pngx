@@ -17,6 +17,7 @@
 
 mod client;
 mod error;
+mod multipart;
 mod types;
 
 pub use jiff;
@@ -26,5 +27,6 @@ pub use error::ApiError;
 pub use types::{
     Correspondent, CorrespondentCreate, CorrespondentUpdate, Document, DocumentType,
     DocumentTypeCreate, DocumentTypeUpdate, DocumentVersion, MatchingAlgorithm, PaginatedResponse,
-    StoragePath, StoragePathCreate, StoragePathUpdate, Tag, TagCreate, TagUpdate, UiSettings,
+    StoragePath, StoragePathCreate, StoragePathUpdate, Tag, TagCreate, TagUpdate, Task, TaskStatus,
+    UiSettings, UploadMetadata,
 };

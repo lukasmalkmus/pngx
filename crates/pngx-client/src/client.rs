@@ -1,18 +1,29 @@
 use std::collections::BTreeMap;
+use std::ffi::OsStr;
 use std::fmt;
 use std::io::{self, Write};
-use std::time::Duration;
+use std::path::Path;
+use std::thread;
+use std::time::{Duration, Instant};
 
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use url::Url;
 
 use crate::error::ApiError;
+use crate::multipart::MultipartBuilder;
 use crate::types::{
     Correspondent, CorrespondentCreate, CorrespondentUpdate, Document, DocumentType,
     DocumentTypeCreate, DocumentTypeUpdate, DocumentVersion, PaginatedResponse, StoragePath,
-    StoragePathCreate, StoragePathUpdate, Tag, TagCreate, TagUpdate, UiSettings,
+    StoragePathCreate, StoragePathUpdate, Tag, TagCreate, TagUpdate, Task, TaskStatus, UiSettings,
+    UploadMetadata,
 };
+
+const WAIT_POLL_MIN: Duration = Duration::from_millis(250);
+const WAIT_POLL_MAX: Duration = Duration::from_secs(5);
+/// Number of consecutive empty task-list responses after which we switch
+/// from `TaskPending` to `TaskUnknown` (see plan decision 2).
+const TASK_UNKNOWN_THRESHOLD: usize = 10;
 
 const DEFAULT_PAGE_SIZE: u32 = 100;
 
@@ -583,6 +594,188 @@ impl Client {
     /// Returns [`ApiError::NotFound`] if the storage path does not exist.
     pub fn delete_storage_path(&self, id: u64) -> Result<(), ApiError> {
         self.delete_path(&format!("api/storage_paths/{id}/"))
+    }
+
+    // --- Document upload + task polling ------------------------------------
+
+    /// Uploads a document, streaming its bytes from disk. Returns the Celery
+    /// task UUID that Paperless assigns to the consumption job.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ApiError::Io`] if the file cannot be opened,
+    /// [`ApiError::BadRequest`] if Paperless rejects the upload (e.g.
+    /// duplicate content hash), or [`ApiError::ValidationError`] on a 400
+    /// response with per-field errors.
+    pub fn upload_document(
+        &self,
+        file: &Path,
+        metadata: &UploadMetadata,
+    ) -> Result<String, ApiError> {
+        let filename = file
+            .file_name()
+            .and_then(OsStr::to_str)
+            .unwrap_or("document")
+            .to_string();
+        let mut builder = MultipartBuilder::new();
+        populate_upload_parts(&mut builder, metadata);
+        builder.file_from_path("document", &filename, "application/octet-stream", file)?;
+        let (mut body, content_type) = builder.build();
+        self.send_upload(&content_type, &mut body)
+    }
+
+    /// Uploads a document from an in-memory byte buffer. Intended for tests
+    /// and small payloads; the CLI path uses [`Client::upload_document`]
+    /// instead, which streams from disk.
+    ///
+    /// # Errors
+    ///
+    /// Same as [`Client::upload_document`].
+    pub fn upload_document_bytes(
+        &self,
+        bytes: Vec<u8>,
+        filename: &str,
+        metadata: &UploadMetadata,
+    ) -> Result<String, ApiError> {
+        let mut builder = MultipartBuilder::new();
+        populate_upload_parts(&mut builder, metadata);
+        builder.file_from_bytes("document", filename, "application/octet-stream", bytes);
+        let (mut body, content_type) = builder.build();
+        self.send_upload(&content_type, &mut body)
+    }
+
+    fn send_upload(
+        &self,
+        content_type: &str,
+        body: &mut crate::multipart::MultipartBody,
+    ) -> Result<String, ApiError> {
+        let url = self.url("api/documents/post_document/")?;
+        let resp = self
+            .agent
+            .post(url.as_str())
+            .config()
+            .http_status_as_error(false)
+            .build()
+            .header("Accept", "application/json; version=9")
+            .header("Authorization", &format!("Token {}", self.token))
+            .header("Content-Type", content_type)
+            .send(ureq::SendBody::from_reader(body))?;
+        let (parts, mut resp_body) = resp.into_parts();
+        let status = parts.status.as_u16();
+        if !(200..300).contains(&status) {
+            return Err(status_to_error(status, resp_body));
+        }
+        // Response body is a bare JSON string (the task UUID).
+        let task_uuid: String = resp_body.read_json()?;
+        Ok(task_uuid)
+    }
+
+    /// Fetches a Paperless consumption task by its Celery UUID.
+    ///
+    /// Paperless returns a list; on success, the first element is returned.
+    /// `Ok(None)` indicates the task is not (yet) visible — it may have
+    /// just been queued, or Celery's result expiry may have reaped it.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error on network failure or authentication issues.
+    pub fn task(&self, task_uuid: &str) -> Result<Option<Task>, ApiError> {
+        let mut url = self.url("api/tasks/")?;
+        url.query_pairs_mut().append_pair("task_id", task_uuid);
+        let tasks: Vec<Task> = self.get(&url)?;
+        Ok(tasks.into_iter().next())
+    }
+
+    /// Upload a document and wait for Paperless to finish consuming it,
+    /// returning the created document ID.
+    ///
+    /// # Errors
+    ///
+    /// - [`ApiError::TaskPending`] if `timeout` elapses while the task is
+    ///   still running (non-empty responses).
+    /// - [`ApiError::TaskUnknown`] if the task list returns empty for
+    ///   [`TASK_UNKNOWN_THRESHOLD`] consecutive polls — the task was likely
+    ///   reaped by Celery and the outcome cannot be determined.
+    /// - [`ApiError::BadRequest`] if Paperless reports `FAILURE` or
+    ///   `REVOKED`.
+    pub fn upload_document_and_wait(
+        &self,
+        file: &Path,
+        metadata: &UploadMetadata,
+        timeout: Duration,
+    ) -> Result<u64, ApiError> {
+        let task_uuid = self.upload_document(file, metadata)?;
+        self.wait_for_task(&task_uuid, timeout)
+    }
+
+    fn wait_for_task(&self, task_uuid: &str, timeout: Duration) -> Result<u64, ApiError> {
+        let deadline = Instant::now() + timeout;
+        let mut backoff = WAIT_POLL_MIN;
+        let mut empty_streak = 0usize;
+        loop {
+            if let Some(task) = self.task(task_uuid)? {
+                empty_streak = 0;
+                match task.status {
+                    TaskStatus::Success => {
+                        return task.related_document.ok_or_else(|| ApiError::BadRequest {
+                            message: "task succeeded but no document id returned".to_string(),
+                        });
+                    }
+                    TaskStatus::Failure => {
+                        return Err(ApiError::BadRequest {
+                            message: task.result.unwrap_or_else(|| "upload failed".to_string()),
+                        });
+                    }
+                    TaskStatus::Revoked => {
+                        return Err(ApiError::BadRequest {
+                            message: "task revoked".to_string(),
+                        });
+                    }
+                    TaskStatus::Pending | TaskStatus::Started | TaskStatus::Other => {
+                        // keep polling
+                    }
+                }
+            } else {
+                empty_streak += 1;
+                if empty_streak >= TASK_UNKNOWN_THRESHOLD {
+                    return Err(ApiError::TaskUnknown {
+                        task_uuid: task_uuid.to_string(),
+                    });
+                }
+            }
+            if Instant::now() >= deadline {
+                return Err(ApiError::TaskPending {
+                    task_uuid: task_uuid.to_string(),
+                });
+            }
+            thread::sleep(backoff);
+            backoff = (backoff * 2).min(WAIT_POLL_MAX);
+        }
+    }
+}
+
+/// Populate the non-file multipart fields from an [`UploadMetadata`].
+fn populate_upload_parts(builder: &mut MultipartBuilder, metadata: &UploadMetadata) {
+    if let Some(title) = &metadata.title {
+        builder.text("title", title);
+    }
+    if let Some(created) = metadata.created {
+        builder.text("created", &created.to_string());
+    }
+    if let Some(id) = metadata.correspondent {
+        builder.text("correspondent", &id.to_string());
+    }
+    if let Some(id) = metadata.document_type {
+        builder.text("document_type", &id.to_string());
+    }
+    if let Some(id) = metadata.storage_path {
+        builder.text("storage_path", &id.to_string());
+    }
+    if let Some(asn) = metadata.archive_serial_number {
+        builder.text("archive_serial_number", &asn.to_string());
+    }
+    for tag_id in &metadata.tags {
+        builder.text("tags", &tag_id.to_string());
     }
 }
 
@@ -1413,6 +1606,305 @@ mod tests {
             let round_trip: MatchingAlgorithm = serde_json::from_str(&json).unwrap();
             assert_eq!(round_trip, variant);
         }
+    }
+
+    // --- Upload + task polling ------------------------------------------
+
+    #[tokio::test]
+    async fn test_upload_document_bytes_returns_task_uuid() {
+        use wiremock::matchers::header_exists;
+
+        let (server, client) = setup().await;
+        let task_uuid = "11111111-2222-3333-4444-555555555555";
+
+        Mock::given(method("POST"))
+            .and(path("/api/documents/post_document/"))
+            .and(header("Authorization", "Token test-token"))
+            .and(header_exists("content-type"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(task_uuid))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let metadata = UploadMetadata {
+            title: Some("Invoice".to_string()),
+            ..Default::default()
+        };
+        let returned = client
+            .upload_document_bytes(b"%PDF-fake".to_vec(), "invoice.pdf", &metadata)
+            .expect("upload should succeed");
+        assert_eq!(returned, task_uuid);
+    }
+
+    #[tokio::test]
+    async fn test_upload_body_contains_all_metadata_parts() {
+        // Assert the multipart body contains each metadata field as a form
+        // part. We match on substrings because the boundary is random.
+        use wiremock::matchers::body_string_contains;
+
+        let (server, client) = setup().await;
+        let task_uuid = "22222222-2222-2222-2222-222222222222";
+
+        Mock::given(method("POST"))
+            .and(path("/api/documents/post_document/"))
+            .and(body_string_contains("name=\"title\""))
+            .and(body_string_contains("name=\"created\""))
+            .and(body_string_contains("name=\"correspondent\""))
+            .and(body_string_contains("name=\"document_type\""))
+            .and(body_string_contains("name=\"tags\""))
+            .and(body_string_contains("name=\"storage_path\""))
+            .and(body_string_contains("name=\"archive_serial_number\""))
+            .and(body_string_contains("name=\"document\""))
+            .and(body_string_contains("filename=\"scan.pdf\""))
+            .and(body_string_contains(
+                "Content-Type: application/octet-stream",
+            ))
+            .respond_with(ResponseTemplate::new(200).set_body_json(task_uuid))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let metadata = UploadMetadata {
+            title: Some("Jan 2026".to_string()),
+            created: Some(jiff::civil::date(2026, 1, 15)),
+            correspondent: Some(5),
+            document_type: Some(2),
+            storage_path: Some(7),
+            tags: vec![1, 2, 3],
+            archive_serial_number: Some(1001),
+        };
+        client
+            .upload_document_bytes(b"%PDF-x".to_vec(), "scan.pdf", &metadata)
+            .expect("upload should succeed");
+    }
+
+    #[tokio::test]
+    async fn test_upload_omits_empty_metadata_fields() {
+        // With the default UploadMetadata, only the `document` part should
+        // be present. The task UUID response is a bare JSON string.
+        use wiremock::matchers::body_string_contains;
+
+        let (server, client) = setup().await;
+        let task_uuid = "33333333-3333-3333-3333-333333333333";
+
+        Mock::given(method("POST"))
+            .and(path("/api/documents/post_document/"))
+            .and(body_string_contains("name=\"document\""))
+            .respond_with(ResponseTemplate::new(200).set_body_json(task_uuid))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        client
+            .upload_document_bytes(b"%PDF-min".to_vec(), "min.pdf", &UploadMetadata::default())
+            .expect("upload should succeed");
+    }
+
+    #[tokio::test]
+    async fn test_upload_400_bad_request() {
+        let (server, client) = setup().await;
+
+        Mock::given(method("POST"))
+            .and(path("/api/documents/post_document/"))
+            .respond_with(ResponseTemplate::new(400).set_body_string("unsupported file type: .xyz"))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let err = client
+            .upload_document_bytes(b"x".to_vec(), "f.xyz", &UploadMetadata::default())
+            .expect_err("upload should fail");
+        match err {
+            ApiError::BadRequest { message } => {
+                assert!(message.contains("unsupported file type"));
+            }
+            other => panic!("expected BadRequest, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_task_returns_some_when_list_has_one() {
+        use wiremock::matchers::query_param;
+
+        let (server, client) = setup().await;
+        let task_uuid = "44444444-4444-4444-4444-444444444444";
+
+        Mock::given(method("GET"))
+            .and(path("/api/tasks/"))
+            .and(query_param("task_id", task_uuid))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(serde_json::json!([{
+                    "id": 42,
+                    "task_id": task_uuid,
+                    "status": "SUCCESS",
+                    "result": null,
+                    "related_document": 99,
+                    "task_file_name": "invoice.pdf"
+                }])),
+            )
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let task = client.task(task_uuid).expect("task request should succeed");
+        assert!(task.is_some());
+        let task = task.unwrap();
+        assert_eq!(task.status, TaskStatus::Success);
+        assert_eq!(task.related_document, Some(99));
+    }
+
+    #[tokio::test]
+    async fn test_task_returns_none_when_list_is_empty() {
+        let (server, client) = setup().await;
+        Mock::given(method("GET"))
+            .and(path("/api/tasks/"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(Vec::<serde_json::Value>::new()))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let task = client.task("unknown-uuid").expect("task request OK");
+        assert!(task.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_wait_returns_document_id_on_success() {
+        use wiremock::matchers::query_param;
+
+        let (server, client) = setup().await;
+        let task_uuid = "55555555-5555-5555-5555-555555555555";
+
+        // Upload: return UUID.
+        Mock::given(method("POST"))
+            .and(path("/api/documents/post_document/"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(task_uuid))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        // First task poll: STARTED.
+        Mock::given(method("GET"))
+            .and(path("/api/tasks/"))
+            .and(query_param("task_id", task_uuid))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(serde_json::json!([{
+                    "id": 1,
+                    "task_id": task_uuid,
+                    "status": "STARTED",
+                    "result": null,
+                    "related_document": null
+                }])),
+            )
+            .up_to_n_times(1)
+            .mount(&server)
+            .await;
+
+        // Second task poll: SUCCESS.
+        Mock::given(method("GET"))
+            .and(path("/api/tasks/"))
+            .and(query_param("task_id", task_uuid))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(serde_json::json!([{
+                    "id": 1,
+                    "task_id": task_uuid,
+                    "status": "SUCCESS",
+                    "result": null,
+                    "related_document": 77
+                }])),
+            )
+            .mount(&server)
+            .await;
+
+        let doc_id = client
+            .upload_document_bytes(b"x".to_vec(), "scan.pdf", &UploadMetadata::default())
+            .and_then(|task_uuid| client.wait_for_task(&task_uuid, Duration::from_secs(5)))
+            .expect("wait should return doc id");
+        assert_eq!(doc_id, 77);
+    }
+
+    #[tokio::test]
+    async fn test_wait_surfaces_failure_message() {
+        let (server, client) = setup().await;
+        let task_uuid = "66666666-6666-6666-6666-666666666666";
+
+        Mock::given(method("GET"))
+            .and(path("/api/tasks/"))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(serde_json::json!([{
+                    "id": 1,
+                    "task_id": task_uuid,
+                    "status": "FAILURE",
+                    "result": "file is password-protected",
+                    "related_document": null
+                }])),
+            )
+            .mount(&server)
+            .await;
+
+        let err = client
+            .wait_for_task(task_uuid, Duration::from_secs(5))
+            .expect_err("wait should fail on FAILURE");
+        match err {
+            ApiError::BadRequest { message } => {
+                assert!(message.contains("password-protected"), "got: {message}");
+            }
+            other => panic!("expected BadRequest, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_wait_returns_task_unknown_after_empty_threshold() {
+        let (server, client) = setup().await;
+        let task_uuid = "77777777-7777-7777-7777-777777777777";
+
+        Mock::given(method("GET"))
+            .and(path("/api/tasks/"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(Vec::<serde_json::Value>::new()))
+            .mount(&server)
+            .await;
+
+        // Use a long timeout so we hit the empty-streak threshold, not the
+        // deadline. Polls take 250ms initially and double; 10 polls reach
+        // roughly 15s worth of exponential backoff (capped at 5s each).
+        let err = client
+            .wait_for_task(task_uuid, Duration::from_mins(2))
+            .expect_err("wait should fail on empty streak");
+        match err {
+            ApiError::TaskUnknown { task_uuid: t } => assert_eq!(t, task_uuid),
+            other => panic!("expected TaskUnknown, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_wait_returns_task_pending_on_deadline() {
+        let (server, client) = setup().await;
+        let task_uuid = "88888888-8888-8888-8888-888888888888";
+
+        // Task keeps reporting PENDING forever — caller deadline must fire.
+        Mock::given(method("GET"))
+            .and(path("/api/tasks/"))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(serde_json::json!([{
+                    "id": 1,
+                    "task_id": task_uuid,
+                    "status": "PENDING",
+                    "result": null,
+                    "related_document": null
+                }])),
+            )
+            .mount(&server)
+            .await;
+
+        let start = Instant::now();
+        let err = client
+            .wait_for_task(task_uuid, Duration::from_millis(600))
+            .expect_err("wait should time out");
+        match err {
+            ApiError::TaskPending { task_uuid: t } => assert_eq!(t, task_uuid),
+            other => panic!("expected TaskPending, got {other:?}"),
+        }
+        // Sanity: didn't spin for hours.
+        assert!(start.elapsed() < Duration::from_secs(5));
     }
 
     #[tokio::test]

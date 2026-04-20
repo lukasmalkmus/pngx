@@ -1,12 +1,15 @@
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use anyhow::{Context, Result, bail};
-use pngx_client::{Client, DocumentVersion};
+use pngx_client::{
+    Client, Correspondent, DocumentType, DocumentVersion, StoragePath, Tag, UploadMetadata,
+};
 use url::Url;
 
 use crate::output::{FieldFilter, OutputFormat, resolve_documents};
-use crate::resolve::NameResolver;
+use crate::resolve::{NameOrId, NameResolver};
 
 pub fn list(
     client: &Client,
@@ -128,6 +131,49 @@ pub fn open(url: &Url, ids: &[u64]) -> Result<()> {
         );
         open::that_detached(&doc_url)?;
         eprintln!("Opened {doc_url}");
+    }
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn upload(
+    client: &Client,
+    file: &Path,
+    title: Option<String>,
+    created: Option<jiff::civil::Date>,
+    correspondent: Option<&str>,
+    document_type: Option<&str>,
+    tags: &[String],
+    storage_path: Option<&str>,
+    archive_serial_number: Option<u64>,
+    wait: bool,
+    wait_timeout: Duration,
+) -> Result<()> {
+    let metadata = UploadMetadata {
+        title,
+        created,
+        correspondent: correspondent
+            .map(|input| Correspondent::resolve(client, input))
+            .transpose()?,
+        document_type: document_type
+            .map(|input| DocumentType::resolve(client, input))
+            .transpose()?,
+        storage_path: storage_path
+            .map(|input| StoragePath::resolve(client, input))
+            .transpose()?,
+        tags: tags
+            .iter()
+            .map(|name| Tag::resolve(client, name))
+            .collect::<Result<Vec<_>>>()?,
+        archive_serial_number,
+    };
+
+    if wait {
+        let id = client.upload_document_and_wait(file, &metadata, wait_timeout)?;
+        println!("{id}");
+    } else {
+        let task_uuid = client.upload_document(file, &metadata)?;
+        println!("{task_uuid}");
     }
     Ok(())
 }

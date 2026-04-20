@@ -277,6 +277,49 @@ async fn tags_delete_unknown_name_exits_not_found_style() {
 }
 
 #[tokio::test]
+async fn documents_upload_without_wait_prints_task_uuid() {
+    let server = MockServer::start().await;
+    let task_uuid = "aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb";
+
+    Mock::given(method("POST"))
+        .and(path("/api/documents/post_document/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(task_uuid))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    // Use a scratch PDF to upload.
+    let tmp_dir = std::env::temp_dir().join(format!("pngx-upload-test-{}", std::process::id()));
+    std::fs::create_dir_all(&tmp_dir).unwrap();
+    let pdf = tmp_dir.join("invoice.pdf");
+    std::fs::write(&pdf, b"%PDF-fake").unwrap();
+
+    let out = run_pngx(
+        &server.uri(),
+        &[
+            "documents",
+            "upload",
+            pdf.to_str().unwrap(),
+            "--title",
+            "Invoice Jan",
+        ],
+    );
+    std::fs::remove_dir_all(&tmp_dir).ok();
+
+    assert!(
+        out.status.success(),
+        "exit={:?} stderr={}",
+        out.status.code(),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        stdout.trim() == task_uuid,
+        "expected task UUID on stdout; got: {stdout}"
+    );
+}
+
+#[tokio::test]
 async fn tags_create_duplicate_returns_validation_error_json() {
     let server = MockServer::start().await;
     Mock::given(method("POST"))

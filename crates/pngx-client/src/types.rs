@@ -340,6 +340,70 @@ pub struct StoragePathCreate {
     pub is_insensitive: Option<bool>,
 }
 
+// --- Task polling --------------------------------------------------------
+
+/// Paperless-ngx consumption task status.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum TaskStatus {
+    /// Task is queued but not started.
+    Pending,
+    /// Task is being processed.
+    Started,
+    /// Task finished successfully. `Task::related_document` is set.
+    Success,
+    /// Task failed; `Task::result` contains the error message.
+    Failure,
+    /// Task was revoked before completion.
+    Revoked,
+    /// Unknown status (forward-compatibility fallback).
+    #[serde(other)]
+    Other,
+}
+
+/// A single Paperless-ngx consumption task, as returned by
+/// `GET /api/tasks/?task_id=<uuid>`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct Task {
+    /// Internal task row ID.
+    pub id: Option<u64>,
+    /// Celery task UUID (the value returned by `post_document`).
+    pub task_id: String,
+    /// Current state.
+    pub status: TaskStatus,
+    /// Human-readable result or error message.
+    #[serde(default)]
+    pub result: Option<String>,
+    /// ID of the document created by this task, populated on `SUCCESS`.
+    #[serde(default)]
+    pub related_document: Option<u64>,
+    /// Filename being consumed.
+    #[serde(default)]
+    pub task_file_name: Option<String>,
+}
+
+/// Metadata to attach to a document during upload. All fields except
+/// `title` are optional; Paperless derives sensible defaults when they
+/// are omitted.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct UploadMetadata {
+    /// Override the document title (defaults to the file's stem).
+    pub title: Option<String>,
+    /// Override the document creation date.
+    pub created: Option<jiff::civil::Date>,
+    /// Correspondent ID to assign.
+    pub correspondent: Option<u64>,
+    /// Document type ID to assign.
+    pub document_type: Option<u64>,
+    /// Storage path ID to assign.
+    pub storage_path: Option<u64>,
+    /// Tag IDs to attach.
+    pub tags: Vec<u64>,
+    /// Archive serial number (ASN) to assign.
+    pub archive_serial_number: Option<u64>,
+}
+
 /// Partial update for a storage path.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 pub struct StoragePathUpdate {

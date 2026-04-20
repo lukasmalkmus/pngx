@@ -23,6 +23,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add `ApiError::BadRequest` and `ApiError::ValidationError` variants and
   thread them through exit codes (both → 2) and `--json-errors` codes
   (`bad_request`, `validation_error`).
+- Add `pngx documents upload FILE [--title] [--created] [--correspondent]
+  [--document-type] [--tags] [--storage-path] [--asn] [--wait]
+  [--wait-timeout]`. Without `--wait`, prints the consumption task UUID;
+  with `--wait`, polls `/api/tasks/` until the task completes and prints
+  the created document ID. The upload body streams directly from disk so
+  multi-hundred-megabyte scans don't double in memory.
+- Add `ApiError::TaskPending` (wait timed out) and `ApiError::TaskUnknown`
+  (task not visible after repeated polls, likely reaped by Celery) with
+  `--json-errors` codes `task_pending` and `task_unknown`; both map to
+  exit code 4.
 
 ### Changed
 

@@ -396,6 +396,38 @@ enum DocumentCommand {
         #[arg(long, alias = "dest")]
         file: Option<PathBuf>,
     },
+    /// Upload a new document
+    Upload {
+        /// Path to the file to upload
+        file: PathBuf,
+        /// Override the document title
+        #[arg(long)]
+        title: Option<String>,
+        /// Override the document creation date (YYYY-MM-DD)
+        #[arg(long)]
+        created: Option<jiff::civil::Date>,
+        /// Assign a correspondent (by ID or exact name)
+        #[arg(long)]
+        correspondent: Option<String>,
+        /// Assign a document type (by ID or exact name)
+        #[arg(long)]
+        document_type: Option<String>,
+        /// Attach tags (comma-separated IDs or exact names)
+        #[arg(long, value_delimiter = ',')]
+        tags: Vec<String>,
+        /// Assign a storage path (by ID or exact name)
+        #[arg(long)]
+        storage_path: Option<String>,
+        /// Archive serial number
+        #[arg(long = "asn")]
+        archive_serial_number: Option<u64>,
+        /// Wait for consumption to finish and print the created document ID
+        #[arg(short = 'w', long)]
+        wait: bool,
+        /// Maximum seconds to wait when `--wait` is set
+        #[arg(long, default_value = "120")]
+        wait_timeout: u64,
+    },
 }
 
 fn init_tracing(verbosity: u8) {
@@ -448,6 +480,7 @@ fn resolve_fields<T: output::FieldNames>(
     }
 }
 
+#[allow(clippy::too_many_lines)]
 fn run(cli: Cli) -> anyhow::Result<()> {
     init_tracing(cli.verbose);
 
@@ -494,6 +527,32 @@ fn run(cli: Cli) -> anyhow::Result<()> {
                     file,
                 } => {
                     commands::documents::download(&client, &ids, original, file.as_ref())?;
+                }
+                DocumentCommand::Upload {
+                    file,
+                    title,
+                    created,
+                    correspondent,
+                    document_type,
+                    tags,
+                    storage_path,
+                    archive_serial_number,
+                    wait,
+                    wait_timeout,
+                } => {
+                    commands::documents::upload(
+                        &client,
+                        &file,
+                        title,
+                        created,
+                        correspondent.as_deref(),
+                        document_type.as_deref(),
+                        &tags,
+                        storage_path.as_deref(),
+                        archive_serial_number,
+                        wait,
+                        Duration::from_secs(wait_timeout),
+                    )?;
                 }
             }
         }
@@ -847,6 +906,8 @@ fn error_code(err: &anyhow::Error) -> &'static str {
             ApiError::NotFound => "not_found",
             ApiError::BadRequest { .. } => "bad_request",
             ApiError::ValidationError { .. } => "validation_error",
+            ApiError::TaskPending { .. } => "task_pending",
+            ApiError::TaskUnknown { .. } => "task_unknown",
             ApiError::InvalidUrl(_) => "invalid_url",
             ApiError::Io(_) => "io_error",
             ApiError::Network(_) => "network_error",
@@ -875,7 +936,9 @@ fn exit_code_for_error(err: &anyhow::Error) -> ExitCode {
             | ApiError::Io(_)
             | ApiError::Network(_)
             | ApiError::Timeout
-            | ApiError::SchemeMismatch { .. } => ExitCode::from(4),
+            | ApiError::SchemeMismatch { .. }
+            | ApiError::TaskPending { .. }
+            | ApiError::TaskUnknown { .. } => ExitCode::from(4),
             _ => ExitCode::from(1),
         }
     } else if err.downcast_ref::<ConfigError>().is_some() {
