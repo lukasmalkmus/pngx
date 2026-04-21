@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-04-21
+
+### Fixed
+
+- Fix public `upload_document_and_wait` docs linking to a private item
+  (`TASK_UNKNOWN_THRESHOLD`). `cargo doc --no-deps --all` is green again
+  under `RUSTDOCFLAGS=-D warnings`.
+- Skip the taxonomy CLI integration tests on Windows. The tests use
+  `env_clear()` when spawning `pngx` to control PATH, which strips
+  essentials on Windows and causes WSAStartup to fail (os error 10106).
+  Coverage stays on Linux and macOS runners.
+- Refresh transitive `rustls-webpki` to 0.103.12 to clear
+  RUSTSEC-2026-0049, RUSTSEC-2026-0098, and RUSTSEC-2026-0099.
+
 ## [0.8.0] - 2026-04-21
 
 ### Added
@@ -174,7 +188,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Release workflow with cross-compiled binaries
 - Agent skill for Paperless-ngx document search
 
-[Unreleased]: https://github.com/lukasmalkmus/pngx/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/lukasmalkmus/pngx/compare/v0.8.1...HEAD
+[0.8.1]: https://github.com/lukasmalkmus/pngx/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/lukasmalkmus/pngx/compare/v0.7.1...v0.8.0
 [0.7.1]: https://github.com/lukasmalkmus/pngx/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/lukasmalkmus/pngx/compare/v0.6.3...v0.7.0
