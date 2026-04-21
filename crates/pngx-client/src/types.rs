@@ -1,4 +1,31 @@
+use serde::de::{self, Deserializer};
 use serde::{Deserialize, Serialize};
+
+/// Deserialize an `Option<u64>` field that the server may return as a
+/// JSON number, a JSON string, or `null` — Paperless-ngx serializes
+/// `Task::related_document` inconsistently across versions.
+fn deserialize_opt_u64_lax<'de, D>(deserializer: D) -> Result<Option<u64>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum NumOrStr {
+        Num(u64),
+        Str(String),
+    }
+    match Option::<NumOrStr>::deserialize(deserializer)? {
+        None => Ok(None),
+        Some(NumOrStr::Num(n)) => Ok(Some(n)),
+        Some(NumOrStr::Str(s)) => {
+            if s.is_empty() {
+                Ok(None)
+            } else {
+                s.parse::<u64>().map(Some).map_err(de::Error::custom)
+            }
+        }
+    }
+}
 
 /// Selects which version of a document to download.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -461,7 +488,10 @@ pub struct Task {
     #[serde(default)]
     pub result: Option<String>,
     /// ID of the document created by this task, populated on `SUCCESS`.
-    #[serde(default)]
+    ///
+    /// Paperless-ngx serializes this field as either an integer or the
+    /// integer as a JSON string depending on version. We accept both.
+    #[serde(default, deserialize_with = "deserialize_opt_u64_lax")]
     pub related_document: Option<u64>,
     /// Filename being consumed.
     #[serde(default)]

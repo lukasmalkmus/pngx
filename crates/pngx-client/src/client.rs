@@ -680,6 +680,22 @@ impl Client {
         content_type: &str,
         body: &mut crate::multipart::MultipartBody,
     ) -> Result<String, ApiError> {
+        // Buffer the body so the request advertises `Content-Length`
+        // instead of `Transfer-Encoding: chunked`. Paperless-ngx under
+        // granian (the WSGI server shipped in recent versions) rejects
+        // chunked `multipart/form-data` uploads with
+        // `{"document": ["No file was submitted."]}` — the dechunker
+        // presents an empty body to the Django multipart parser.
+        //
+        // The multipart encoder itself remains streaming (see
+        // `crates/pngx-client/src/multipart.rs`); only this final hop
+        // materializes the bytes for the sake of the server. For typical
+        // tax-document PDFs (single-digit MB) this is a non-issue; for
+        // the occasional multi-hundred-MB scan, memory still spikes but
+        // no more than the file size plus small framing overhead.
+        let mut buf = Vec::new();
+        io::copy(body, &mut buf)?;
+
         let url = self.url("api/documents/post_document/")?;
         let resp = self
             .agent
@@ -690,7 +706,7 @@ impl Client {
             .header("Accept", "application/json; version=9")
             .header("Authorization", &format!("Token {}", self.token))
             .header("Content-Type", content_type)
-            .send(ureq::SendBody::from_reader(body))?;
+            .send(&buf[..])?;
         let (parts, mut resp_body) = resp.into_parts();
         let status = parts.status.as_u16();
         if !(200..300).contains(&status) {
