@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-04-21
+
+### Fixed
+
+- Fix `pngx documents upload` failing with `{"document": ["No file was
+  submitted."]}` against Paperless-ngx served by granian (2.20.x and
+  newer). The multipart body was sent `Transfer-Encoding: chunked` via
+  `ureq::SendBody::from_reader`, which granian's dechunker presented as
+  an empty body to Django's multipart parser. Now the encoded body is
+  buffered before send so the request advertises `Content-Length`. The
+  multipart encoder itself remains streaming.
+- Fix `--wait` bailing with `invalid type: string "113", expected u64`
+  on some Paperless versions. `Task::related_document` is now accepted
+  as either a JSON number or the same integer as a JSON string.
+
 ## [0.8.1] - 2026-04-21
 
 ### Fixed
@@ -188,7 +203,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Release workflow with cross-compiled binaries
 - Agent skill for Paperless-ngx document search
 
-[Unreleased]: https://github.com/lukasmalkmus/pngx/compare/v0.8.1...HEAD
+[Unreleased]: https://github.com/lukasmalkmus/pngx/compare/v0.8.2...HEAD
+[0.8.2]: https://github.com/lukasmalkmus/pngx/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/lukasmalkmus/pngx/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/lukasmalkmus/pngx/compare/v0.7.1...v0.8.0
 [0.7.1]: https://github.com/lukasmalkmus/pngx/compare/v0.7.0...v0.7.1
