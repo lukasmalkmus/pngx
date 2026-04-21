@@ -724,9 +724,9 @@ impl Client {
     ///
     /// - [`ApiError::TaskPending`] if `timeout` elapses while the task is
     ///   still running (non-empty responses).
-    /// - [`ApiError::TaskUnknown`] if the task list returns empty for
-    ///   [`TASK_UNKNOWN_THRESHOLD`] consecutive polls — the task was likely
-    ///   reaped by Celery and the outcome cannot be determined.
+    /// - [`ApiError::TaskUnknown`] if the task list returns empty for ten
+    ///   consecutive polls — the task was likely reaped by Celery and the
+    ///   outcome cannot be determined.
     /// - [`ApiError::BadRequest`] if Paperless reports `FAILURE` or
     ///   `REVOKED`.
     pub fn upload_document_and_wait(

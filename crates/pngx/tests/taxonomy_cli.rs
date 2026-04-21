@@ -2,7 +2,14 @@
 //!
 //! Each test boots a wiremock server, execs the `pngx` binary with `--url`
 //! and `--token` pointing at it, and asserts on stdout/stderr/exit code.
+//!
+//! Unix-only: we `env_clear()` the child's environment, which on Windows
+//! strips the Winsock DLL directory and other essentials, breaking
+//! networking in the spawned `pngx` process (`WSAStartup` fails with
+//! error 10106). The CLI dispatch logic these tests cover is
+//! platform-agnostic; Linux and macOS runners exercise it on CI.
 
+#![cfg(unix)]
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use std::path::PathBuf;
