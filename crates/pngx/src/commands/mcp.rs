@@ -411,6 +411,22 @@ struct DocumentsBulkEditParams {
     parameters: Option<serde_json::Value>,
 }
 
+#[derive(Deserialize, JsonSchema)]
+struct DocumentsAddNoteParams {
+    /// Document ID
+    id: u64,
+    /// Note text
+    note: String,
+}
+
+#[derive(Deserialize, JsonSchema)]
+struct DocumentsDeleteNoteParams {
+    /// Document ID
+    id: u64,
+    /// Note ID (from `documents_notes`)
+    note_id: u64,
+}
+
 // --- Tool implementations ---
 
 #[tool_router]
@@ -1069,6 +1085,57 @@ impl PngxMcp {
             "result": response.result,
             "affected_documents": response.affected_documents,
         }))
+    }
+
+    // --- Document note tools ----------------------------------------------
+
+    /// List the notes attached to a document.
+    #[tool(name = "documents_notes", annotations(read_only_hint = true))]
+    async fn documents_notes(
+        &self,
+        params: Parameters<DocumentIdParam>,
+    ) -> Result<CallToolResult, McpError> {
+        let client = self.client.clone();
+        let id = params.0.id;
+        let notes = tokio::task::spawn_blocking(move || client.document_notes(id).map_err(api_err))
+            .await
+            .map_err(spawn_err)??;
+        to_json_text(&notes)
+    }
+
+    /// Add a note to a document. Returns the document's updated note list.
+    #[tool(name = "documents_add_note", annotations(read_only_hint = false))]
+    async fn documents_add_note(
+        &self,
+        params: Parameters<DocumentsAddNoteParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let client = self.client.clone();
+        let id = params.0.id;
+        let note = params.0.note;
+        let notes =
+            tokio::task::spawn_blocking(move || client.add_note(id, &note).map_err(api_err))
+                .await
+                .map_err(spawn_err)??;
+        to_json_text(&notes)
+    }
+
+    /// Delete a note from a document. Returns the document's updated note list.
+    #[tool(
+        name = "documents_delete_note",
+        annotations(read_only_hint = false, destructive_hint = true)
+    )]
+    async fn documents_delete_note(
+        &self,
+        params: Parameters<DocumentsDeleteNoteParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let client = self.client.clone();
+        let id = params.0.id;
+        let note_id = params.0.note_id;
+        let notes =
+            tokio::task::spawn_blocking(move || client.delete_note(id, note_id).map_err(api_err))
+                .await
+                .map_err(spawn_err)??;
+        to_json_text(&notes)
     }
 }
 
