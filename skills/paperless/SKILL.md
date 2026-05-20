@@ -12,7 +12,7 @@ description: |
   document-management query.
 user-invocable: true
 argument-hint: <search-query>
-allowed-tools: Bash(pngx search:*), Bash(pngx inbox:*), Bash(pngx documents list:*), Bash(pngx documents get:*), Bash(pngx documents content:*), Bash(pngx documents open:*), Bash(pngx documents download:*), Bash(pngx tags), Bash(pngx tags list:*), Bash(pngx correspondents), Bash(pngx correspondents list:*), Bash(pngx document-types), Bash(pngx document-types list:*), Bash(pngx storage-paths), Bash(pngx storage-paths list:*), Bash(pngx version:*), Bash(pngx auth status:*), Bash(pngx mcp:*), Read
+allowed-tools: Bash(pngx search:*), Bash(pngx inbox:*), Bash(pngx documents list:*), Bash(pngx documents get:*), Bash(pngx documents content:*), Bash(pngx documents open:*), Bash(pngx documents download:*), Bash(pngx documents notes:*), Bash(pngx tags), Bash(pngx tags list:*), Bash(pngx correspondents), Bash(pngx correspondents list:*), Bash(pngx document-types), Bash(pngx document-types list:*), Bash(pngx storage-paths), Bash(pngx storage-paths list:*), Bash(pngx version:*), Bash(pngx auth status:*), Bash(pngx mcp:*), Read
 memory: user
 ---
 
@@ -228,6 +228,16 @@ pngx documents download 42 43 44
 `--file` can only be used with a single document ID. Multiple documents use
 auto-naming from document metadata.
 
+### Notes
+
+List the notes attached to a document. Reading notes is auto-allowed; adding
+and removing are permission-prompted writes.
+
+```sh
+pngx documents notes 42
+pngx documents notes 42 -o json
+```
+
 ### Browse metadata
 
 ```sh
@@ -357,6 +367,7 @@ The server communicates over stdio using JSON-RPC (MCP protocol).
 | `documents_list` | List all documents | `limit` (optional) |
 | `documents_get` | Get documents by ID | `ids` (required, array) |
 | `documents_content` | Get document text content | `id` (required) |
+| `documents_notes` | List a document's notes | `id` (required) |
 | `tags` | List all tags | (none) |
 | `correspondents` | List all correspondents | (none) |
 | `document_types` | List all document types | (none) |
@@ -399,6 +410,11 @@ pngx documents delete 42 --yes
 pngx documents tag 1 2 3 Steuer Hardware
 pngx documents untag 1 2 3 Old
 
+# Add or remove a note (list notes with `pngx documents notes <id>`).
+# remove-note takes the note ID shown by `pngx documents notes`.
+pngx documents add-note 42 "Paid 2026-05-19"
+pngx documents remove-note 42 7
+
 # Escape hatch: any bulk_edit method.
 pngx documents bulk set_correspondent --ids 1,2,3 --params '{"correspondent":42}'
 ```
@@ -434,3 +450,7 @@ Every CLI write command has a matching MCP tool. Writes carry
 `readOnlyHint: false`; deletes and `documents_bulk_edit` additionally
 carry `destructiveHint: true`. Agents using the MCP interface see the
 same permission prompt behavior as Bash commands.
+
+Note tools: `documents_add_note` (`{id, note}`) and `documents_delete_note`
+(`{id, note_id}`, carries `destructiveHint: true`), alongside the read tool
+`documents_notes`.
