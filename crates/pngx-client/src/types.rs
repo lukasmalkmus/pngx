@@ -123,6 +123,38 @@ pub struct Document {
     pub original_file_name: Option<String>,
 }
 
+/// A note attached to a document.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct Note {
+    /// Unique identifier.
+    pub id: u64,
+    /// The note text.
+    pub note: String,
+    /// Timestamp when the note was created.
+    #[serde(default)]
+    pub created: Option<jiff::Timestamp>,
+    /// The user who authored the note. Absent on older servers that omit it.
+    #[serde(default)]
+    pub user: Option<NoteUser>,
+}
+
+/// The user who authored a [`Note`].
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct NoteUser {
+    /// Unique identifier.
+    pub id: u64,
+    /// The username.
+    pub username: String,
+    /// First name, if set.
+    #[serde(default)]
+    pub first_name: Option<String>,
+    /// Last name, if set.
+    #[serde(default)]
+    pub last_name: Option<String>,
+}
+
 /// A tag used to categorize documents.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]

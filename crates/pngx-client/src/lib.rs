@@ -27,7 +27,7 @@ pub use error::ApiError;
 pub use types::{
     BulkEditMethod, BulkEditRequest, BulkEditResponse, Correspondent, CorrespondentCreate,
     CorrespondentUpdate, Document, DocumentPatch, DocumentType, DocumentTypeCreate,
-    DocumentTypeUpdate, DocumentVersion, MatchingAlgorithm, PaginatedResponse, StoragePath,
-    StoragePathCreate, StoragePathUpdate, Tag, TagCreate, TagUpdate, Task, TaskStatus, UiSettings,
-    UploadMetadata,
+    DocumentTypeUpdate, DocumentVersion, MatchingAlgorithm, Note, NoteUser, PaginatedResponse,
+    StoragePath, StoragePathCreate, StoragePathUpdate, Tag, TagCreate, TagUpdate, Task, TaskStatus,
+    UiSettings, UploadMetadata,
 };

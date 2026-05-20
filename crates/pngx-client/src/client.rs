@@ -15,7 +15,7 @@ use crate::multipart::MultipartBuilder;
 use crate::types::{
     BulkEditRequest, BulkEditResponse, Correspondent, CorrespondentCreate, CorrespondentUpdate,
     Document, DocumentPatch, DocumentType, DocumentTypeCreate, DocumentTypeUpdate, DocumentVersion,
-    PaginatedResponse, StoragePath, StoragePathCreate, StoragePathUpdate, Tag, TagCreate,
+    Note, PaginatedResponse, StoragePath, StoragePathCreate, StoragePathUpdate, Tag, TagCreate,
     TagUpdate, Task, TaskStatus, UiSettings, UploadMetadata,
 };
 
@@ -428,6 +428,22 @@ impl Client {
         expect_no_content(resp)
     }
 
+    /// Like [`Client::delete_path`] but decodes a JSON body. The notes
+    /// endpoint returns the updated note list (200) rather than
+    /// `204 No Content`.
+    fn delete_json<R: DeserializeOwned>(&self, url: &Url) -> Result<R, ApiError> {
+        let resp = self
+            .agent
+            .delete(url.as_str())
+            .config()
+            .http_status_as_error(false)
+            .build()
+            .header("Accept", "application/json; version=9")
+            .header("Authorization", &format!("Token {}", self.token))
+            .call()?;
+        decode_body_json(resp)
+    }
+
     // --- Tag CRUD ----------------------------------------------------------
 
     /// Creates a new tag.
@@ -625,6 +641,44 @@ impl Client {
     /// payload.
     pub fn bulk_edit(&self, request: &BulkEditRequest) -> Result<BulkEditResponse, ApiError> {
         self.post_json("api/documents/bulk_edit/", request)
+    }
+
+    // --- Document notes ----------------------------------------------------
+
+    /// Lists the notes attached to a document, newest first.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ApiError::NotFound`] if the document does not exist.
+    pub fn document_notes(&self, id: u64) -> Result<Vec<Note>, ApiError> {
+        let url = self.url(&format!("api/documents/{id}/notes/"))?;
+        self.get(&url)
+    }
+
+    /// Adds a note to a document. Returns the document's updated note list.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ApiError::NotFound`] if the document does not exist, or
+    /// [`ApiError::ValidationError`] if the server rejects the note text.
+    pub fn add_note(&self, id: u64, note: &str) -> Result<Vec<Note>, ApiError> {
+        self.post_json(
+            &format!("api/documents/{id}/notes/"),
+            &serde_json::json!({ "note": note }),
+        )
+    }
+
+    /// Deletes a single note from a document. Returns the document's updated
+    /// note list.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ApiError::NotFound`] if the document or note does not exist.
+    pub fn delete_note(&self, document_id: u64, note_id: u64) -> Result<Vec<Note>, ApiError> {
+        let mut url = self.url(&format!("api/documents/{document_id}/notes/"))?;
+        url.query_pairs_mut()
+            .append_pair("id", &note_id.to_string());
+        self.delete_json(&url)
     }
 
     // --- Document upload + task polling ------------------------------------
@@ -2140,5 +2194,131 @@ mod tests {
             result.results[0].path,
             "{{ correspondent }}/{{ created_year }}"
         );
+    }
+
+    // --- Document notes --------------------------------------------------
+
+    #[tokio::test]
+    async fn test_document_notes_list() {
+        let (server, client) = setup().await;
+        let body = serde_json::json!([
+            {
+                "id": 6,
+                "note": "Classification miss: correspondent not in taxonomy.",
+                "created": "2026-05-18T19:00:22.944039+02:00",
+                "user": {
+                    "id": 3,
+                    "username": "lukasmalkmus",
+                    "first_name": "Lukas",
+                    "last_name": "Malkmus"
+                }
+            }
+        ]);
+
+        Mock::given(method("GET"))
+            .and(path("/api/documents/276/notes/"))
+            .and(header("Authorization", "Token test-token"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(&body))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let notes = client
+            .document_notes(276)
+            .expect("document_notes should succeed");
+        assert_eq!(notes.len(), 1);
+        assert_eq!(notes[0].id, 6);
+        assert_eq!(
+            notes[0].user.as_ref().map(|u| u.username.as_str()),
+            Some("lukasmalkmus")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_document_notes_tolerates_missing_user() {
+        let (server, client) = setup().await;
+        // Older servers may omit `user`; deserialization must not fail.
+        let body = serde_json::json!([
+            {"id": 1, "note": "bare note", "created": null}
+        ]);
+
+        Mock::given(method("GET"))
+            .and(path("/api/documents/9/notes/"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(&body))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let notes = client.document_notes(9).expect("notes should succeed");
+        assert_eq!(notes[0].note, "bare note");
+        assert!(notes[0].user.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_add_note_sends_note_body() {
+        use wiremock::matchers::body_json_string;
+
+        let (server, client) = setup().await;
+        let request_body = serde_json::json!({"note": "Paid 2026-05-19"});
+        let response_body = serde_json::json!([
+            {
+                "id": 7,
+                "note": "Paid 2026-05-19",
+                "created": "2026-05-19T08:00:00+02:00",
+                "user": {"id": 3, "username": "lukasmalkmus"}
+            }
+        ]);
+
+        Mock::given(method("POST"))
+            .and(path("/api/documents/266/notes/"))
+            .and(header("Authorization", "Token test-token"))
+            .and(body_json_string(request_body.to_string()))
+            .respond_with(ResponseTemplate::new(200).set_body_json(&response_body))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let notes = client
+            .add_note(266, "Paid 2026-05-19")
+            .expect("add_note should succeed");
+        assert_eq!(notes.len(), 1);
+        assert_eq!(notes[0].id, 7);
+    }
+
+    #[tokio::test]
+    async fn test_delete_note_sends_id_query() {
+        use wiremock::matchers::query_param;
+
+        let (server, client) = setup().await;
+        // Paperless returns the remaining notes list (here empty) on delete.
+        Mock::given(method("DELETE"))
+            .and(path("/api/documents/266/notes/"))
+            .and(query_param("id", "7"))
+            .and(header("Authorization", "Token test-token"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([])))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let notes = client
+            .delete_note(266, 7)
+            .expect("delete_note should succeed");
+        assert!(notes.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_document_notes_not_found() {
+        let (server, client) = setup().await;
+        Mock::given(method("GET"))
+            .and(path("/api/documents/999/notes/"))
+            .respond_with(ResponseTemplate::new(404))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let err = client
+            .document_notes(999)
+            .expect_err("should return not found");
+        assert!(matches!(err, ApiError::NotFound));
     }
 }
