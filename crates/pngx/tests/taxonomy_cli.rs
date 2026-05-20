@@ -355,3 +355,92 @@ async fn tags_create_duplicate_returns_validation_error_json() {
     let parsed: serde_json::Value = serde_json::from_str(json_line.trim()).expect("JSON error");
     assert_eq!(parsed["code"], "validation_error");
 }
+
+#[tokio::test]
+async fn documents_notes_lists_json() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/documents/42/notes/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([
+            {
+                "id": 6,
+                "note": "Classification miss: correspondent not in taxonomy.",
+                "created": "2026-05-18T19:00:22.944039+02:00",
+                "user": {"id": 3, "username": "lukasmalkmus"}
+            }
+        ])))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let out = run_pngx(&server.uri(), &["documents", "notes", "42", "-o", "json"]);
+    assert!(
+        out.status.success(),
+        "exit={:?} stderr={}",
+        out.status.code(),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(parsed[0]["id"], 6);
+    assert_eq!(parsed[0]["user"]["username"], "lukasmalkmus");
+}
+
+#[tokio::test]
+async fn documents_add_note_posts_note_body() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/api/documents/42/notes/"))
+        .and(body_json_string(
+            json!({"note": "Paid 2026-05-19"}).to_string(),
+        ))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([
+            {"id": 7, "note": "Paid 2026-05-19", "created": null, "user": null}
+        ])))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let out = run_pngx(
+        &server.uri(),
+        &["documents", "add-note", "42", "Paid 2026-05-19"],
+    );
+    assert!(
+        out.status.success(),
+        "exit={:?} stderr={}",
+        out.status.code(),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        stderr.contains("Added note to document 42"),
+        "unexpected stderr: {stderr}"
+    );
+}
+
+#[tokio::test]
+async fn documents_remove_note_sends_id_query() {
+    use wiremock::matchers::query_param;
+
+    let server = MockServer::start().await;
+    Mock::given(method("DELETE"))
+        .and(path("/api/documents/42/notes/"))
+        .and(query_param("id", "7"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([])))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let out = run_pngx(&server.uri(), &["documents", "remove-note", "42", "7"]);
+    assert!(
+        out.status.success(),
+        "exit={:?} stderr={}",
+        out.status.code(),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        stderr.contains("Removed note 7 from document 42"),
+        "unexpected stderr: {stderr}"
+    );
+}

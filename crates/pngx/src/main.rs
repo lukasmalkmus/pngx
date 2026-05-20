@@ -463,6 +463,27 @@ enum DocumentCommand {
         #[command(flatten)]
         output: OutputArgs,
     },
+    /// List notes on a document
+    Notes {
+        /// Document ID
+        id: u64,
+        #[command(flatten)]
+        output: OutputArgs,
+    },
+    /// Add a note to a document
+    AddNote {
+        /// Document ID
+        id: u64,
+        /// Note text
+        text: String,
+    },
+    /// Remove a note from a document
+    RemoveNote {
+        /// Document ID
+        id: u64,
+        /// Note ID (from `pngx documents notes`)
+        note_id: u64,
+    },
     /// Upload a new document
     Upload {
         /// Path to the file to upload
@@ -649,6 +670,17 @@ fn run(cli: Cli) -> anyhow::Result<()> {
                         .map_err(|e| anyhow::anyhow!("invalid --params JSON: {e}"))?;
                     let format = resolve_output(&output, &config);
                     commands::documents::bulk(&client, &ids, method, parameters, format)?;
+                }
+                DocumentCommand::Notes { id, output } => {
+                    let format = resolve_output(&output, &config);
+                    let fields = resolve_fields::<pngx_client::Note>(&output)?;
+                    commands::documents::notes(&client, id, format, fields.as_ref())?;
+                }
+                DocumentCommand::AddNote { id, text } => {
+                    commands::documents::add_note(&client, id, &text)?;
+                }
+                DocumentCommand::RemoveNote { id, note_id } => {
+                    commands::documents::remove_note(&client, id, note_id)?;
                 }
                 DocumentCommand::Upload {
                     file,

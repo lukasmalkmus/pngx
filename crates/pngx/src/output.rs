@@ -4,7 +4,7 @@ use comfy_table::presets::ASCII_MARKDOWN;
 use comfy_table::{ContentArrangement, Table};
 use serde::{Deserialize, Serialize};
 
-use pngx_client::{Correspondent, Document, DocumentType, StoragePath, Tag};
+use pngx_client::{Correspondent, Document, DocumentType, Note, StoragePath, Tag};
 
 use crate::resolve::NameResolver;
 
@@ -235,6 +235,8 @@ impl FieldFilter {
                     "Path" => f == "path",
                     "Original File" => f == "original_file_name",
                     "ASN" => f == "archive_serial_number",
+                    "Note" => f == "note",
+                    "User" => f == "user",
                     _ => false,
                 }
         })
@@ -489,6 +491,30 @@ impl Tabular for StoragePath {
             self.path.clone(),
             self.document_count
                 .map(|n| n.to_string())
+                .unwrap_or_default(),
+        ]
+    }
+}
+
+impl FieldNames for Note {
+    fn valid_fields() -> &'static [&'static str] {
+        &["id", "note", "created", "user"]
+    }
+}
+
+impl Tabular for Note {
+    fn headers() -> &'static [&'static str] {
+        &["ID", "Note", "Created", "User"]
+    }
+
+    fn row(&self) -> Vec<String> {
+        vec![
+            self.id.to_string(),
+            self.note.clone(),
+            display_opt(self.created.as_ref(), ""),
+            self.user
+                .as_ref()
+                .map(|u| u.username.clone())
                 .unwrap_or_default(),
         ]
     }

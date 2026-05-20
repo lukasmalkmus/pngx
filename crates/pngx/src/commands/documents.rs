@@ -317,3 +317,30 @@ pub fn bulk(
     }
     Ok(())
 }
+
+pub fn notes(
+    client: &Client,
+    id: u64,
+    format: OutputFormat,
+    fields: Option<&FieldFilter>,
+) -> Result<()> {
+    let notes = client.document_notes(id)?;
+    if notes.is_empty() && matches!(format, OutputFormat::Markdown) {
+        eprintln!("No notes on document {id}");
+        return Ok(());
+    }
+    super::print_all(format, &notes, fields)?;
+    Ok(())
+}
+
+pub fn add_note(client: &Client, id: u64, text: &str) -> Result<()> {
+    client.add_note(id, text)?;
+    eprintln!("Added note to document {id}");
+    Ok(())
+}
+
+pub fn remove_note(client: &Client, id: u64, note_id: u64) -> Result<()> {
+    client.delete_note(id, note_id)?;
+    eprintln!("Removed note {note_id} from document {id}");
+    Ok(())
+}
