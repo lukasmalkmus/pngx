@@ -36,6 +36,9 @@ pngx [--url URL] [--token TOKEN] [--json-errors] [-v...] COMMAND
 ├─ documents content ID...
 ├─ documents open ID...
 ├─ documents download ID... [--original] [--file PATH]
+├─ documents notes ID [-o FORMAT] [-F FIELDS]
+├─ documents add-note ID TEXT
+├─ documents remove-note ID NOTE_ID
 │
 ├─ tags [-o FORMAT] [-F FIELDS]
 ├─ correspondents [-o FORMAT] [-F FIELDS]
@@ -77,7 +80,9 @@ machine-readable errors to stderr as `{"error":"...","code":"..."}`.
 | 5 | Configuration error |
 
 **MCP server:** `pngx mcp serve` starts an MCP server over stdio for
-tool-calling agents. Provides 9 read-only tools matching the CLI commands.
+tool-calling agents. Provides tools mirroring the CLI: read tools plus
+permission-gated write tools (taxonomy CRUD, document upload/update/delete,
+and document notes).
 
 ## Build commands
 
