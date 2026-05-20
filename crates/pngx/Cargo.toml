@@ -1,6 +1,6 @@
 [package]
 name = "pngx"
-version = "0.8.2"
+version = "0.9.0"
 description = "CLI for Paperless NGX"
 edition.workspace = true
 rust-version.workspace = true
