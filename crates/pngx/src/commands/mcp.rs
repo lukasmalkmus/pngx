@@ -3,7 +3,6 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use rmcp::handler::server::tool::ToolRouter;
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::{
     CallToolResult, Content, ErrorCode, Implementation, ServerCapabilities, ServerInfo,
@@ -164,7 +163,6 @@ fn parse_bulk_method(method: &str) -> Result<BulkEditMethod, McpError> {
 pub struct PngxMcp {
     client: Arc<Client>,
     cache: Arc<RwLock<Option<Arc<CachedResolver>>>>,
-    tool_router: ToolRouter<Self>,
 }
 
 impl PngxMcp {
@@ -172,7 +170,6 @@ impl PngxMcp {
         Self {
             client: Arc::new(client),
             cache: Arc::new(RwLock::new(None)),
-            tool_router: Self::tool_router(),
         }
     }
 
