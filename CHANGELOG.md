@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-05-20
+
+### Security
+
+- Bump `rustls-webpki` to 0.103.13, clearing RUSTSEC-2026-0104 (a reachable
+  panic when parsing certificate revocation lists). pngx does not parse CRLs,
+  so it was not exploitable; the bump keeps `cargo audit` clean.
+
 ## [0.9.0] - 2026-05-20
 
 ### Added
@@ -213,7 +221,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Release workflow with cross-compiled binaries
 - Agent skill for Paperless-ngx document search
 
-[Unreleased]: https://github.com/lukasmalkmus/pngx/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/lukasmalkmus/pngx/compare/v0.9.1...HEAD
+[0.9.1]: https://github.com/lukasmalkmus/pngx/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/lukasmalkmus/pngx/compare/v0.8.2...v0.9.0
 [0.8.2]: https://github.com/lukasmalkmus/pngx/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/lukasmalkmus/pngx/compare/v0.8.0...v0.8.1
