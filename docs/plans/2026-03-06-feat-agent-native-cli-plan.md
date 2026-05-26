@@ -12,7 +12,7 @@ origin: docs/brainstorms/2026-03-06-agent-native-cli-brainstorm.md
 
 Transition pngx from a human-first CLI to an agent-first CLI. The CLI remains
 the core interface but optimizes for predictability over discoverability. An MCP
-server (`pngx mcp serve`) provides a lower-barrier entry point for less capable
+server (`pngx mcp`) provides a lower-barrier entry point for less capable
 agents and non-technical users. Both surfaces consume the `pngx-client` library
 directly (see brainstorm: library-first architecture decision).
 
@@ -187,7 +187,7 @@ results before output. NDJSON requires a callback/iterator approach:
 - `crates/pngx/src/commands/mod.rs` - NDJSON path in `print_results`
 - `crates/pngx-client/src/client.rs` - Page iterator or callback API (optional)
 
-### Phase 4: MCP Server (`pngx mcp serve`)
+### Phase 4: MCP Server (`pngx mcp`)
 
 Stdio JSON-RPC server using `rmcp` 1.1.0. Each supported command becomes an MCP
 tool. Uses `pngx-client` directly.
@@ -245,7 +245,7 @@ No explicit cache refresh tool (agents can wait for TTL expiry).
 async (tokio). Use `tokio::task::spawn_blocking` for each tool handler. This
 allows concurrent tool calls without blocking the tokio event loop.
 
-**Auth:** `pngx mcp serve` accepts `--url` and `--token` flags (same as the
+**Auth:** `pngx mcp` accepts `--url` and `--token` flags (same as the
 CLI global flags) and reads from figment config/env vars. The client is
 constructed once at startup. If config is missing, the server fails to start
 with a clear error message.
@@ -323,7 +323,7 @@ Document in: skill file, `--help` epilog, and README.
 - [ ] Config errors exit with code 5
 - [ ] `-o ndjson` on `documents list` streams one object per line
 - [ ] NDJSON metadata header includes `total_count` and `has_more`
-- [ ] `pngx mcp serve` starts and responds to MCP `initialize`
+- [ ] `pngx mcp` starts and responds to MCP `initialize`
 - [ ] All 9 MCP tools are callable and return correct JSON
 - [ ] MCP tool errors return proper JSON-RPC error responses
 - [ ] MCP NameResolver caches with 5-minute TTL
@@ -354,7 +354,7 @@ Document in: skill file, `--help` epilog, and README.
 ## Sources & References
 
 - **Origin brainstorm:** [docs/brainstorms/2026-03-06-agent-native-cli-brainstorm.md](docs/brainstorms/2026-03-06-agent-native-cli-brainstorm.md)
-  Key decisions: library-first architecture, single binary with `pngx mcp serve`,
+  Key decisions: library-first architecture, single binary with `pngx mcp`,
   no schema introspection, read-only scope, agents as primary audience.
 - **Article:** Justin Poehnelt, "You Need to Rewrite Your CLI for AI Agents"
   (https://justin.poehnelt.com/posts/rewrite-your-cli-for-ai-agents/)

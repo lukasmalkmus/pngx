@@ -14,7 +14,7 @@ operators and AI agents.
 - Read document content as plain text
 - Output as markdown tables, JSON, or NDJSON (streamable)
 - Field filtering (`-F id,title`) to reduce output size
-- MCP server (`pngx mcp serve`) for tool-calling agents
+- MCP server (`pngx mcp`) for tool-calling agents
 - Structured JSON errors (`--json-errors`) with machine-readable codes
 - Agent-friendly: predictable commands, distinct exit codes, Claude Code plugin
 
@@ -96,7 +96,7 @@ pngx [--url URL] [--token TOKEN] [-v...] COMMAND
 | `tags` | List all tags |
 | `correspondents` | List all correspondents |
 | `document-types` | List all document types |
-| `mcp serve` | Start MCP server over stdio |
+| `mcp` | Start MCP server over stdio |
 | `version` | Show CLI and server version |
 
 `inbox`, `search`, and `documents list` default to 25 results. Use `-n` to limit,
@@ -119,7 +119,7 @@ For tool-calling agents, start the MCP server:
   "mcpServers": {
     "pngx": {
       "command": "pngx",
-      "args": ["mcp", "serve"],
+      "args": ["mcp"],
       "env": {
         "PNGX_URL": "https://paperless.example.com",
         "PNGX_TOKEN": "your-api-token"

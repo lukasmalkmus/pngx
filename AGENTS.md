@@ -44,7 +44,7 @@ pngx [--url URL] [--token TOKEN] [--json-errors] [-v...] COMMAND
 ├─ correspondents [-o FORMAT] [-F FIELDS]
 ├─ document-types [-o FORMAT] [-F FIELDS]
 │
-├─ mcp serve
+├─ mcp
 └─ version
 ```
 
@@ -79,7 +79,7 @@ machine-readable errors to stderr as `{"error":"...","code":"..."}`.
 | 4 | I/O, network, timeout, or URL error |
 | 5 | Configuration error |
 
-**MCP server:** `pngx mcp serve` starts an MCP server over stdio for
+**MCP server:** `pngx mcp` starts an MCP server over stdio for
 tool-calling agents. Provides tools mirroring the CLI: read tools plus
 permission-gated write tools (taxonomy CRUD, document upload/update/delete,
 and document notes).

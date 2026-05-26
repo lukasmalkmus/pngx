@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-05-26
+
+### Added
+
+- Add Codex plugin metadata and marketplace packaging alongside the existing
+  Claude Code plugin.
+- Add bundled MCP configuration for plugin and desktop hosts using `pngx mcp`.
+
+### Changed
+
+- Flatten the MCP server command to `pngx mcp`.
+- Make the plugin shim and binary-sync hook work with Codex plugin
+  environment variables as well as Claude Code's variables.
+
 ## [0.9.1] - 2026-05-20
 
 ### Security
@@ -129,7 +143,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add `-o ndjson` output format for streamable newline-delimited JSON
 - Add `--json-errors` flag and `PNGX_JSON_ERRORS` env var for structured error
   output on stderr
-- Add `pngx mcp serve` command for MCP (Model Context Protocol) server over
+- Add `pngx mcp` command for MCP (Model Context Protocol) server over
   stdio with 9 read-only tools
 - Add exit code 5 for configuration errors (missing URL or token)
 
@@ -221,7 +235,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Release workflow with cross-compiled binaries
 - Agent skill for Paperless-ngx document search
 
-[Unreleased]: https://github.com/lukasmalkmus/pngx/compare/v0.9.1...HEAD
+[Unreleased]: https://github.com/lukasmalkmus/pngx/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/lukasmalkmus/pngx/compare/v0.9.1...v0.10.0
 [0.9.1]: https://github.com/lukasmalkmus/pngx/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/lukasmalkmus/pngx/compare/v0.8.2...v0.9.0
 [0.8.2]: https://github.com/lukasmalkmus/pngx/compare/v0.8.1...v0.8.2

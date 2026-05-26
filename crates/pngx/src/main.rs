@@ -132,11 +132,8 @@ enum Command {
         #[command(subcommand)]
         action: Option<StoragePathsCommand>,
     },
-    /// MCP (Model Context Protocol) server
-    Mcp {
-        #[command(subcommand)]
-        action: McpCommand,
-    },
+    /// Run the MCP server over stdio.
+    Mcp,
     /// Show version information
     Version,
 }
@@ -326,12 +323,6 @@ enum StoragePathsCommand {
         #[arg(long)]
         yes: bool,
     },
-}
-
-#[derive(Subcommand)]
-enum McpCommand {
-    /// Start the MCP server over stdio
-    Serve,
 }
 
 #[derive(Subcommand)]
@@ -749,15 +740,13 @@ fn run(cli: Cli) -> anyhow::Result<()> {
             let (client, config) = build_client(cli.url.as_deref(), cli.token.as_deref())?;
             dispatch_storage_paths(&client, &config, action)?;
         }
-        Command::Mcp { action } => match action {
-            McpCommand::Serve => {
-                let (client, _config) = build_client(cli.url.as_deref(), cli.token.as_deref())?;
-                tokio::runtime::Builder::new_current_thread()
-                    .enable_all()
-                    .build()?
-                    .block_on(commands::mcp::serve(client))?;
-            }
-        },
+        Command::Mcp => {
+            let (client, _config) = build_client(cli.url.as_deref(), cli.token.as_deref())?;
+            tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()?
+                .block_on(commands::mcp::serve(client))?;
+        }
     }
 
     Ok(())

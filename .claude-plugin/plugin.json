@@ -1,7 +1,7 @@
 {
   "name": "pngx",
   "description": "Search, retrieve, and manage documents in Paperless-ngx",
-  "version": "0.9.1",
+  "version": "0.10.0",
   "author": {
     "name": "Lukas Malkmus",
     "email": "mail@lukasmalkmus.com"
@@ -9,5 +9,6 @@
   "homepage": "https://github.com/lukasmalkmus/pngx",
   "repository": "https://github.com/lukasmalkmus/pngx",
   "license": "MIT",
-  "keywords": ["paperless-ngx", "documents", "search", "cli"]
+  "keywords": ["paperless-ngx", "documents", "search", "cli", "mcp"],
+  "mcpServers": "./.mcp.json"
 }

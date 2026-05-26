@@ -12,7 +12,7 @@ description: |
   document-management query.
 user-invocable: true
 argument-hint: <search-query>
-allowed-tools: Bash(pngx search:*), Bash(pngx inbox:*), Bash(pngx documents list:*), Bash(pngx documents get:*), Bash(pngx documents content:*), Bash(pngx documents open:*), Bash(pngx documents download:*), Bash(pngx documents notes:*), Bash(pngx tags), Bash(pngx tags list:*), Bash(pngx correspondents), Bash(pngx correspondents list:*), Bash(pngx document-types), Bash(pngx document-types list:*), Bash(pngx storage-paths), Bash(pngx storage-paths list:*), Bash(pngx version:*), Bash(pngx auth status:*), Bash(pngx mcp:*), Read
+allowed-tools: Bash(pngx search:*), Bash(pngx inbox:*), Bash(pngx documents list:*), Bash(pngx documents get:*), Bash(pngx documents content:*), Bash(pngx documents open:*), Bash(pngx documents download:*), Bash(pngx documents notes:*), Bash(pngx tags), Bash(pngx tags list:*), Bash(pngx correspondents), Bash(pngx correspondents list:*), Bash(pngx document-types), Bash(pngx document-types list:*), Bash(pngx storage-paths), Bash(pngx storage-paths list:*), Bash(pngx version:*), Bash(pngx auth status:*), Bash(pngx mcp), Read
 memory: user
 ---
 
@@ -27,7 +27,7 @@ pngx provides two interfaces:
 | Interface | Best for | When to use |
 |-----------|----------|-------------|
 | **CLI** (`pngx ...`) | Token-efficient agents, scripting, jq pipelines | Default choice for capable agents |
-| **MCP** (`pngx mcp serve`) | Less capable agents, tool-calling workflows | When the agent supports MCP natively |
+| **MCP** (`pngx mcp`) | Less capable agents, tool-calling workflows | When the agent supports MCP natively |
 
 Both interfaces consume the same API client and return identical data structures.
 
@@ -346,7 +346,7 @@ Start the MCP server for tool-calling agents:
   "mcpServers": {
     "pngx": {
       "command": "pngx",
-      "args": ["mcp", "serve"],
+      "args": ["mcp"],
       "env": {
         "PNGX_URL": "https://paperless.example.com",
         "PNGX_TOKEN": "your-api-token"

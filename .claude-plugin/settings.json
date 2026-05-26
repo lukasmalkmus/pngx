@@ -19,7 +19,7 @@
       "Bash(pngx storage-paths list:*)",
       "Bash(pngx version:*)",
       "Bash(pngx auth status:*)",
-      "Bash(pngx mcp:*)",
+      "Bash(pngx mcp)",
       "Skill(pngx:paperless)",
       "Skill(paperless)"
     ],

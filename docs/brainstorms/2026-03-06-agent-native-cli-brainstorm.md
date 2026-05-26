@@ -10,7 +10,7 @@ topic: agent-native-cli
 Transition pngx from a human-first CLI to an agent-first CLI, informed by
 Justin Poehnelt's "Rewrite Your CLI for AI Agents" recommendations. Agents
 become the primary audience. The CLI remains the core interface, but an MCP
-server (`pngx mcp serve`) provides a lower-barrier entry point for less capable
+server (`pngx mcp`) provides a lower-barrier entry point for less capable
 agents and non-technical users.
 
 The scope is read-only for now. Write operations (upload, tag, delete) are
@@ -32,7 +32,7 @@ Alternatives considered:
 
 ## Key Decisions
 
-- **Single binary:** MCP server lives in the `pngx` crate as `pngx mcp serve`,
+- **Single binary:** MCP server lives in the `pngx` crate as `pngx mcp`,
   not a separate binary. One artifact to distribute. Can be feature-gated later
   if binary size matters.
 - **No schema introspection command:** The CLI surface is small (~12 commands,
@@ -60,7 +60,7 @@ Alternatives considered:
   2 = usage error, 3 = auth error) so agents can branch without parsing
   stderr.
 
-### MCP server (`pngx mcp serve`)
+### MCP server (`pngx mcp`)
 
 - Stdio JSON-RPC transport (standard MCP protocol).
 - Each CLI command maps to an MCP tool (e.g., `search`, `documents_list`,
