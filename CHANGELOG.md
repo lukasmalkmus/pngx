@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.2] - 2026-06-17
+
+### Fixed
+
+- Resolve the bundled MCP server via `${CLAUDE_PLUGIN_ROOT}/bin/pngx` instead of a
+  bare `pngx` command. Plugin hosts spawn the stdio MCP server without the plugin's
+  `bin/` on `PATH`, so the bare name failed with "Executable not found in $PATH".
+
 ## [0.10.1] - 2026-05-28
 
 ### Changed

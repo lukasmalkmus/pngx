@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "pngx": {
-      "command": "pngx",
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/pngx",
       "args": ["mcp"]
     }
   }
