@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::{
-    CallToolResult, Content, ErrorCode, Implementation, ServerCapabilities, ServerInfo,
+    CallToolResult, ContentBlock, ErrorCode, Implementation, ServerCapabilities, ServerInfo,
 };
 use rmcp::{ErrorData as McpError, ServiceExt, tool, tool_router};
 use schemars::JsonSchema;
@@ -82,7 +82,7 @@ fn resolve_doc(doc: &pngx_client::Document, resolver: &CachedResolver) -> Resolv
 fn to_json_text<T: Serialize>(value: &T) -> Result<CallToolResult, McpError> {
     let json = serde_json::to_string_pretty(value)
         .map_err(|e| McpError::new(ErrorCode::INTERNAL_ERROR, e.to_string(), None))?;
-    Ok(CallToolResult::success(vec![Content::text(json)]))
+    Ok(CallToolResult::success(vec![ContentBlock::text(json)]))
 }
 
 #[allow(clippy::needless_pass_by_value)]
