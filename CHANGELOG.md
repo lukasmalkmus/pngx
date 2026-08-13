@@ -7,9 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-08-13
+
+### Added
+
+- The plugin now asks for your Paperless-ngx URL and API token when you enable
+  it, and stores the token in your system keychain. Leave both empty to keep
+  using the credentials from `pngx auth login`.
+
 ### Changed
 
+- The MCP server speaks protocol 2026-07-28. Older clients still negotiate
+  2025-06-18.
 - Truncated table cells now end with `…` instead of `...` (comfy-table 8).
+
+### Fixed
+
+- A blank `PNGX_URL` or `PNGX_TOKEN` no longer overrides a stored login.
 
 ## [0.10.2] - 2026-06-17
 
@@ -253,7 +267,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Release workflow with cross-compiled binaries
 - Agent skill for Paperless-ngx document search
 
-[Unreleased]: https://github.com/lukasmalkmus/pngx/compare/v0.10.1...HEAD
+[Unreleased]: https://github.com/lukasmalkmus/pngx/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/lukasmalkmus/pngx/compare/v0.10.2...v0.11.0
+[0.10.2]: https://github.com/lukasmalkmus/pngx/compare/v0.10.1...v0.10.2
 [0.10.1]: https://github.com/lukasmalkmus/pngx/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/lukasmalkmus/pngx/compare/v0.9.1...v0.10.0
 [0.9.1]: https://github.com/lukasmalkmus/pngx/compare/v0.9.0...v0.9.1

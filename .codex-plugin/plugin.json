@@ -1,6 +1,6 @@
 {
   "name": "pngx",
-  "version": "0.10.2",
+  "version": "0.11.0",
   "description": "Search, retrieve, and manage documents in Paperless-ngx",
   "author": {
     "name": "Lukas Malkmus",
@@ -9,7 +9,13 @@
   "homepage": "https://github.com/lukasmalkmus/pngx",
   "repository": "https://github.com/lukasmalkmus/pngx",
   "license": "MIT",
-  "keywords": ["paperless-ngx", "documents", "search", "cli", "mcp"],
+  "keywords": [
+    "paperless-ngx",
+    "documents",
+    "search",
+    "cli",
+    "mcp"
+  ],
   "skills": "./skills/",
   "mcpServers": "./.mcp.json",
   "hooks": "./hooks/hooks.json",
@@ -19,7 +25,10 @@
     "longDescription": "Search, retrieve, upload, tag, and manage Paperless-ngx documents via CLI or MCP.",
     "developerName": "Lukas Malkmus",
     "category": "Productivity",
-    "capabilities": ["Read", "Write"],
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
     "websiteURL": "https://github.com/lukasmalkmus/pngx",
     "defaultPrompt": [
       "Search Paperless for recent invoices",
