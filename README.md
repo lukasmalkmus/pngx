@@ -75,6 +75,38 @@ Find all invoices from January 2025 in Paperless
 
 You can also invoke it explicitly with `/paperless`.
 
+On enable, Claude Code asks for your Paperless-ngx URL and API token and stores
+the token in your system keychain. Leave both empty to keep using the
+credentials from `pngx auth login`.
+
+### Confirm before writes
+
+The skill pre-approves read-only commands. Write commands still prompt, unless
+a broader rule of your own already allows them. To force a prompt regardless,
+add this to `~/.claude/settings.json`:
+
+```json
+{
+  "permissions": {
+    "ask": [
+      "Bash(pngx documents upload:*)",
+      "Bash(pngx documents update:*)",
+      "Bash(pngx documents delete:*)",
+      "Bash(pngx documents tag:*)",
+      "Bash(pngx documents untag:*)",
+      "Bash(pngx documents bulk:*)",
+      "Bash(pngx tags delete:*)",
+      "Bash(pngx correspondents delete:*)",
+      "Bash(pngx document-types delete:*)",
+      "Bash(pngx storage-paths delete:*)"
+    ]
+  }
+}
+```
+
+A plugin cannot ship permission rules, so these have to live in your own
+settings.
+
 ## Usage
 
 ```

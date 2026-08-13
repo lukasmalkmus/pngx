@@ -1,5 +1,7 @@
 {
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "pngx",
+  "displayName": "Paperless-ngx CLI",
   "description": "Search, retrieve, and manage documents in Paperless-ngx",
   "version": "0.10.2",
   "author": {
@@ -9,6 +11,25 @@
   "homepage": "https://github.com/lukasmalkmus/pngx",
   "repository": "https://github.com/lukasmalkmus/pngx",
   "license": "MIT",
-  "keywords": ["paperless-ngx", "documents", "search", "cli", "mcp"],
-  "mcpServers": "./.mcp.json"
+  "keywords": [
+    "paperless-ngx",
+    "documents",
+    "search",
+    "cli",
+    "mcp"
+  ],
+  "mcpServers": "./.mcp.json",
+  "userConfig": {
+    "url": {
+      "type": "string",
+      "title": "Paperless-ngx URL",
+      "description": "Base URL of your instance, e.g. https://paperless.example.com. Leave empty to keep using `pngx auth login`."
+    },
+    "token": {
+      "type": "string",
+      "title": "API token",
+      "description": "Paperless-ngx API token. Leave empty to keep using `pngx auth login`.",
+      "sensitive": true
+    }
+  }
 }

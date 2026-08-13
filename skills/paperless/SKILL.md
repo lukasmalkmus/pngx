@@ -1,10 +1,10 @@
 ---
 name: paperless
 description: |
-  Paperless-ngx document management via the pngx CLI and MCP server.
-  Use when searching, listing, counting, filtering, downloading, retrieving,
-  **uploading**, **tagging**, **deleting**, or otherwise managing documents,
-  tags, correspondents, document types, or storage paths in Paperless.
+  Paperless-ngx document management via the pngx CLI and MCP server. Search,
+  list, count, filter, download, upload, tag, and delete documents, tags,
+  correspondents, document types, and storage paths.
+when_to_use: |
   Triggers on: "paperless", "documents", "invoices", "receipts", "find",
   "search", "count", "download", "upload", "tag", "untag", "archive",
   "file this", "ablegen", "hochladen", "create tag", "create correspondent",
@@ -13,7 +13,6 @@ description: |
 user-invocable: true
 argument-hint: <search-query>
 allowed-tools: Bash(pngx search:*), Bash(pngx inbox:*), Bash(pngx documents list:*), Bash(pngx documents get:*), Bash(pngx documents content:*), Bash(pngx documents open:*), Bash(pngx documents download:*), Bash(pngx documents notes:*), Bash(pngx tags), Bash(pngx tags list:*), Bash(pngx correspondents), Bash(pngx correspondents list:*), Bash(pngx document-types), Bash(pngx document-types list:*), Bash(pngx storage-paths), Bash(pngx storage-paths list:*), Bash(pngx version:*), Bash(pngx auth status:*), Bash(pngx mcp), Read
-memory: user
 ---
 
 # Paperless Document Management

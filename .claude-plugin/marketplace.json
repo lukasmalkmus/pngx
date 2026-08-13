@@ -1,19 +1,16 @@
 {
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
   "name": "pngx",
+  "description": "Search, browse, retrieve, upload, and manage documents in a Paperless-ngx instance.",
   "owner": {
     "name": "Lukas Malkmus",
     "email": "mail@lukasmalkmus.com"
-  },
-  "metadata": {
-    "title": "Paperless-ngx CLI",
-    "description": "Search, browse, retrieve, upload, and manage documents in a Paperless-ngx instance.",
-    "categories": ["productivity", "document-management"],
-    "tags": ["paperless-ngx", "documents", "search", "cli"]
   },
   "plugins": [
     {
       "name": "pngx",
       "source": "./",
+      "displayName": "Paperless-ngx CLI",
       "description": "Search, browse, retrieve, upload, and manage documents in a Paperless-ngx instance.",
       "version": "0.10.2",
       "author": {
@@ -22,7 +19,20 @@
       "homepage": "https://github.com/lukasmalkmus/pngx",
       "repository": "https://github.com/lukasmalkmus/pngx",
       "license": "MIT",
-      "keywords": ["paperless-ngx", "documents", "search", "cli", "mcp"]
+      "category": "productivity",
+      "keywords": [
+        "paperless-ngx",
+        "documents",
+        "search",
+        "cli",
+        "mcp"
+      ],
+      "tags": [
+        "paperless-ngx",
+        "documents",
+        "search",
+        "cli"
+      ]
     }
   ]
 }

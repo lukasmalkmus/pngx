@@ -69,11 +69,19 @@ impl fmt::Debug for RawConfig {
     }
 }
 
+/// Whether `PNGX_<key>` holds something other than whitespace. Env layers over
+/// the config file, so a blank value would otherwise erase a stored login. The
+/// plugin passes unset `userConfig` options through as empty strings.
+fn env_var_is_set(key: &figment::value::UncasedStr) -> bool {
+    std::env::var(format!("PNGX_{}", key.as_str().to_uppercase()))
+        .is_ok_and(|value| !value.trim().is_empty())
+}
+
 impl RawConfig {
     pub fn load(url_override: Option<&str>, token_override: Option<&str>) -> anyhow::Result<Self> {
         let mut figment = Figment::from(Serialized::defaults(RawConfig::default()))
             .merge(Toml::file(config_file_path()))
-            .merge(Env::prefixed("PNGX_"));
+            .merge(Env::prefixed("PNGX_").filter(env_var_is_set));
 
         if let Some(url) = url_override {
             figment = figment.merge(Serialized::default("url", url));
@@ -143,4 +151,45 @@ pub fn config_dir() -> PathBuf {
 
 pub fn config_file_path() -> PathBuf {
     config_dir().join("config.toml")
+}
+
+#[cfg(test)]
+// Jail::expect_with hands back figment::Error, which is wide enough to trip
+// result_large_err. Not ours to shrink.
+#[allow(clippy::result_large_err)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn blank_env_does_not_erase_stored_login() {
+        figment::Jail::expect_with(|jail| {
+            jail.set_env("PNGX_URL", "");
+            jail.set_env("PNGX_TOKEN", "   ");
+
+            let config: RawConfig = Figment::from(Serialized::defaults(RawConfig::default()))
+                .merge(Serialized::default("url", "https://paperless.example.com"))
+                .merge(Serialized::default("token", "stored-token"))
+                .merge(Env::prefixed("PNGX_").filter(env_var_is_set))
+                .extract()?;
+
+            assert_eq!(config.url, "https://paperless.example.com");
+            assert_eq!(config.token, "stored-token");
+            Ok(())
+        });
+    }
+
+    #[test]
+    fn populated_env_still_wins() {
+        figment::Jail::expect_with(|jail| {
+            jail.set_env("PNGX_URL", "https://from-env.example.com");
+
+            let config: RawConfig = Figment::from(Serialized::defaults(RawConfig::default()))
+                .merge(Serialized::default("url", "https://from-file.example.com"))
+                .merge(Env::prefixed("PNGX_").filter(env_var_is_set))
+                .extract()?;
+
+            assert_eq!(config.url, "https://from-env.example.com");
+            Ok(())
+        });
+    }
 }

@@ -2,7 +2,13 @@
   "mcpServers": {
     "pngx": {
       "command": "${CLAUDE_PLUGIN_ROOT}/bin/pngx",
-      "args": ["mcp"]
+      "args": [
+        "mcp"
+      ],
+      "env": {
+        "PNGX_URL": "${user_config.url}",
+        "PNGX_TOKEN": "${user_config.token}"
+      }
     }
   }
 }
