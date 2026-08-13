@@ -277,7 +277,7 @@ fn display_opt<T: std::fmt::Display>(opt: Option<&T>, default: &str) -> String {
 
 fn new_markdown_table(headers: &[&str]) -> Table {
     let mut table = Table::new();
-    table.load_preset(ASCII_MARKDOWN);
+    table.load_style(ASCII_MARKDOWN);
     table.set_content_arrangement(ContentArrangement::Dynamic);
     table.set_header(headers.iter());
     table

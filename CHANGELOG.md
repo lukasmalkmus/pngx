@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Truncated table cells now end with `…` instead of `...` (comfy-table 8).
+
 ## [0.10.2] - 2026-06-17
 
 ### Fixed
