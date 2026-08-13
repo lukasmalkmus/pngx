@@ -96,7 +96,7 @@ cargo doc --no-deps --all                       # Build docs
 
 ### MSRV
 
-Minimum supported Rust version is **1.93** (edition 2024).
+Minimum supported Rust version is **1.94** (edition 2024).
 
 ## Commit format
 

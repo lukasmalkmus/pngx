@@ -8,12 +8,20 @@ on:
       - "LICENSE"
       - ".claude-plugin/**"
       - "skills/**"
+      - "hooks/**"
+      - ".codex-plugin/**"
+      - ".agents/**"
+      - ".mcp.json"
   pull_request:
     paths-ignore:
       - "**.md"
       - "LICENSE"
       - ".claude-plugin/**"
       - "skills/**"
+      - "hooks/**"
+      - ".codex-plugin/**"
+      - ".agents/**"
+      - ".mcp.json"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -81,6 +89,9 @@ jobs:
   audit:
     name: Audit
     runs-on: ubuntu-latest
+    permissions:
+      checks: write
+      contents: read
     steps:
       - uses: actions/checkout@v7
       - uses: rustsec/audit-check@v2
