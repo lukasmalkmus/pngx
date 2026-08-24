@@ -1170,6 +1170,7 @@ impl PngxMcp {
 }
 
 #[rmcp::tool_handler]
+#[allow(clippy::unused_async_trait_impl)] // rmcp's macro generates a ready-future impl
 impl rmcp::handler::server::ServerHandler for PngxMcp {
     fn get_info(&self) -> ServerInfo {
         ServerInfo::new(ServerCapabilities::builder().enable_tools().build())

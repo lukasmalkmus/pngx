@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-08-24
+
+### Changed
+
+- Refresh dependencies via `cargo update`, including `rmcp` 3.1.4. This moves
+  `h2` to 0.4.18, which closes RUSTSEC-2026-0258, an unbounded queue of empty
+  HTTP/2 DATA frames.
+
 ## [0.11.0] - 2026-08-13
 
 ### Added
@@ -267,7 +275,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Release workflow with cross-compiled binaries
 - Agent skill for Paperless-ngx document search
 
-[Unreleased]: https://github.com/lukasmalkmus/pngx/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/lukasmalkmus/pngx/compare/v0.11.1...HEAD
+[0.11.1]: https://github.com/lukasmalkmus/pngx/compare/v0.11.0...v0.11.1
 [0.11.0]: https://github.com/lukasmalkmus/pngx/compare/v0.10.2...v0.11.0
 [0.10.2]: https://github.com/lukasmalkmus/pngx/compare/v0.10.1...v0.10.2
 [0.10.1]: https://github.com/lukasmalkmus/pngx/compare/v0.10.0...v0.10.1

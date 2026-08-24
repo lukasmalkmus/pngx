@@ -3,7 +3,7 @@
   "name": "pngx",
   "displayName": "Paperless-ngx CLI",
   "description": "Search, retrieve, and manage documents in Paperless-ngx",
-  "version": "0.11.0",
+  "version": "0.11.1",
   "author": {
     "name": "Lukas Malkmus",
     "email": "mail@lukasmalkmus.com"
