@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.2] - 2026-10-07
+
+### Changed
+
+- Refresh dependencies via `cargo update`, including `rmcp` 3.5.1. This moves
+  `rustls` to 0.23.45, which closes RUSTSEC-2026-0285, TLS 1.3 handshake
+  messages accepted across encryption level boundaries.
+
+### Fixed
+
+- Drop the literal `<system-reminder>` tag from the skill nudge. Claude Code
+  wraps hook context in its own reminder and, since 2.1.292, escapes tags in
+  hook output, so Claude received an escaped tag.
+- Quote the plugin root in the hook commands. The hooks failed with exit 127
+  when the plugin directory path contained a space.
+
 ## [0.11.1] - 2026-08-24
 
 ### Changed
@@ -275,7 +291,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Release workflow with cross-compiled binaries
 - Agent skill for Paperless-ngx document search
 
-[Unreleased]: https://github.com/lukasmalkmus/pngx/compare/v0.11.1...HEAD
+[Unreleased]: https://github.com/lukasmalkmus/pngx/compare/v0.11.2...HEAD
+[0.11.2]: https://github.com/lukasmalkmus/pngx/compare/v0.11.1...v0.11.2
 [0.11.1]: https://github.com/lukasmalkmus/pngx/compare/v0.11.0...v0.11.1
 [0.11.0]: https://github.com/lukasmalkmus/pngx/compare/v0.10.2...v0.11.0
 [0.10.2]: https://github.com/lukasmalkmus/pngx/compare/v0.10.1...v0.10.2
