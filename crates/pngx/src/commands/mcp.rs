@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::{
-    CallToolResult, ContentBlock, ErrorCode, Implementation, ServerCapabilities, ServerInfo,
+    CallToolResult, ContentBlock, ErrorCode, Implementation, ServerCapabilities, ServerConfig,
 };
 use rmcp::{ErrorData as McpError, ServiceExt, tool, tool_router};
 use schemars::JsonSchema;
@@ -1172,8 +1172,8 @@ impl PngxMcp {
 #[rmcp::tool_handler]
 #[allow(clippy::unused_async_trait_impl)] // rmcp's macro generates a ready-future impl
 impl rmcp::handler::server::ServerHandler for PngxMcp {
-    fn get_info(&self) -> ServerInfo {
-        ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
+    fn get_info(&self) -> ServerConfig {
+        ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
             .with_server_info(Implementation::new("pngx", env!("CARGO_PKG_VERSION")))
             .with_instructions(
                 "Paperless-ngx document management. Search, list, and read documents, \
