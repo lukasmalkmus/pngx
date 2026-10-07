@@ -18,7 +18,7 @@ marker="${TMPDIR:-/tmp}/.pngx-skill-nudge-${session_id:-$PPID}"
 [ -f "$marker" ] && exit 0
 touch "$marker"
 
-nudge='<system-reminder>The "paperless" skill provides guided pngx workflows. Invoke it with /paperless or the Skill tool.</system-reminder>'
+nudge='The "paperless" skill provides guided pngx workflows. Invoke it with /paperless or the Skill tool.'
 
 jq -n --arg nudge "$nudge" '{
   hookSpecificOutput: {
