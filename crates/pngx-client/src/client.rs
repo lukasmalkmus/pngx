@@ -2303,7 +2303,7 @@ mod tests {
         let notes = client
             .delete_note(266, 7)
             .expect("delete_note should succeed");
-        assert!(notes.is_empty());
+        assert_eq!(notes, vec![]);
     }
 
     #[tokio::test]
