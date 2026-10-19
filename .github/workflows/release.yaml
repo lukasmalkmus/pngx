@@ -16,6 +16,7 @@ jobs:
         include:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
+            build-tool: cross # The cross image, not the runner, sets the glibc floor.
           - target: aarch64-unknown-linux-gnu
             os: ubuntu-latest
           - target: x86_64-apple-darwin
@@ -34,6 +35,7 @@ jobs:
         with:
           bin: pngx
           target: ${{ matrix.target }}
+          build-tool: ${{ matrix.build-tool }}
           dry-run: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
