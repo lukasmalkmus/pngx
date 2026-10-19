@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.3] - 2026-10-19
+
+### Changed
+
+- The x86_64 Linux binary needs glibc 2.18 or later, down from 2.39 in 0.11.2.
+
+### Security
+
+- Refresh dependencies via `cargo update`. This moves `rustls` to 0.23.46,
+  which closes RUSTSEC-2026-0346 to RUSTSEC-2026-0349. RUSTSEC-2026-0349
+  covers an unauthenticated ServerHello that downgrades later connections to
+  classical key exchange.
+
 ## [0.11.2] - 2026-10-07
 
 ### Changed
@@ -291,7 +304,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Release workflow with cross-compiled binaries
 - Agent skill for Paperless-ngx document search
 
-[Unreleased]: https://github.com/lukasmalkmus/pngx/compare/v0.11.2...HEAD
+[Unreleased]: https://github.com/lukasmalkmus/pngx/compare/v0.11.3...HEAD
+[0.11.3]: https://github.com/lukasmalkmus/pngx/compare/v0.11.2...v0.11.3
 [0.11.2]: https://github.com/lukasmalkmus/pngx/compare/v0.11.1...v0.11.2
 [0.11.1]: https://github.com/lukasmalkmus/pngx/compare/v0.11.0...v0.11.1
 [0.11.0]: https://github.com/lukasmalkmus/pngx/compare/v0.10.2...v0.11.0
