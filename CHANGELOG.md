@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Launch the bundled MCP server in Codex without unresolved Claude-specific executable or credential placeholders.
 - Keep launcher helpers available when the host sanitizes PATH.
+- Remove temporary download files before starting the CLI.
 
 ## [0.11.3] - 2026-10-19
 
