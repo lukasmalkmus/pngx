@@ -1,8 +1,8 @@
-#!/usr/bin/env bash
+#!/bin/bash
 #
-# SessionStart hook: keep ${CLAUDE_PLUGIN_DATA}/bin/pngx in sync with the
-# plugin version declared in .claude-plugin/plugin.json. Runs once per
-# Claude Code session and fires-and-forgets so we never block session
+# SessionStart hook: keep the plugin-managed pngx in sync with the
+# version declared in plugin.json. Runs once per
+# session and fires-and-forgets so we never block session
 # startup on a flaky network.
 #
 # Any download actually happens via bin/pngx's own lazy path, so the worst
@@ -10,10 +10,14 @@
 # session pays the download cost instead of the session start.
 
 set -euo pipefail
+export PATH="${PATH:+$PATH:}/usr/bin:/bin:/usr/sbin:/sbin"
 
 plugin_root="${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-}}"
 data_dir="${PLUGIN_DATA:-${CLAUDE_PLUGIN_DATA:-$HOME/.claude/plugins/data/pngx}}"
-plugin_json="$plugin_root/.codex-plugin/plugin.json"
+plugin_json="$plugin_root/plugin.json"
+if [[ ! -f "$plugin_json" ]]; then
+  plugin_json="$plugin_root/.codex-plugin/plugin.json"
+fi
 if [[ ! -f "$plugin_json" ]]; then
   plugin_json="$plugin_root/.claude-plugin/plugin.json"
 fi

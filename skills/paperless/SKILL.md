@@ -4,15 +4,13 @@ description: |
   Paperless-ngx document management via the pngx CLI and MCP server. Search,
   list, count, filter, download, upload, tag, and delete documents, tags,
   correspondents, document types, and storage paths.
-when_to_use: |
   Triggers on: "paperless", "documents", "invoices", "receipts", "find",
   "search", "count", "download", "upload", "tag", "untag", "archive",
   "file this", "ablegen", "hochladen", "create tag", "create correspondent",
   "delete document", "inbox", "unprocessed", "document type", or any
   document-management query.
-user-invocable: true
-argument-hint: <search-query>
-allowed-tools: Bash(pngx search:*), Bash(pngx inbox:*), Bash(pngx documents list:*), Bash(pngx documents get:*), Bash(pngx documents content:*), Bash(pngx documents open:*), Bash(pngx documents download:*), Bash(pngx documents notes:*), Bash(pngx tags), Bash(pngx tags list:*), Bash(pngx correspondents), Bash(pngx correspondents list:*), Bash(pngx document-types), Bash(pngx document-types list:*), Bash(pngx storage-paths), Bash(pngx storage-paths list:*), Bash(pngx version:*), Bash(pngx auth status:*), Bash(pngx mcp), Read
+compatibility: Requires the pngx CLI, network access to Paperless-ngx, and a saved login or host-provided credentials. The bundled launcher supports macOS and Linux with Bash, curl, and tar.
+allowed-tools: Bash(pngx search:*) Bash(pngx inbox:*) Bash(pngx documents list:*) Bash(pngx documents get:*) Bash(pngx documents content:*) Bash(pngx documents open:*) Bash(pngx documents download:*) Bash(pngx documents notes:*) Bash(pngx tags) Bash(pngx tags list:*) Bash(pngx correspondents) Bash(pngx correspondents list:*) Bash(pngx document-types) Bash(pngx document-types list:*) Bash(pngx storage-paths) Bash(pngx storage-paths list:*) Bash(pngx version:*) Bash(pngx auth status:*) Bash(pngx mcp) Read
 ---
 
 # Paperless Document Management
@@ -229,8 +227,7 @@ auto-naming from document metadata.
 
 ### Notes
 
-List the notes attached to a document. Reading notes is auto-allowed; adding
-and removing are permission-prompted writes.
+List the notes attached to a document. Confirm the user's intent and parameters before adding or removing notes. Tool permissions depend on the host.
 
 ```sh
 pngx documents notes 42
@@ -376,14 +373,9 @@ Read tools carry `readOnlyHint: true`. Document metadata (correspondent,
 type, tags) is resolved to human-readable names. The resolver is cached
 for 5 minutes.
 
-## Write operations (permission-prompted)
+## Write operations
 
-pngx also supports write operations. These are **not pre-allowed** in this
-skill's `allowed-tools`; Claude Code prompts for permission on every call.
-When a user says "upload", "tag this document", "create a correspondent",
-"delete document X", etc., draft the command, confirm the parameters, and
-run it. The permission prompt is the safety net — do not reply "I have
-no tools for that."
+pngx also supports write operations. These are not pre-approved by this skill's `allowed-tools`. That field grants permissions only in hosts that support its syntax and does not restrict other tools or guarantee an approval prompt. Before a write, draft the command and obtain the user's confirmation of its parameters. Follow the host's approval policy in addition to this confirmation.
 
 ### Documents
 
@@ -447,8 +439,7 @@ names hint at creating the entity first.
 
 Every CLI write command has a matching MCP tool. Writes carry
 `readOnlyHint: false`; deletes and `documents_bulk_edit` additionally
-carry `destructiveHint: true`. Agents using the MCP interface see the
-same permission prompt behavior as Bash commands.
+carry `destructiveHint: true`. These annotations describe tools but do not enforce confirmation. Follow the same confirmation workflow and the MCP host's approval policy.
 
 Note tools: `documents_add_note` (`{id, note}`) and `documents_delete_note`
 (`{id, note_id}`, carries `destructiveHint: true`), alongside the read tool

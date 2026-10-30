@@ -80,9 +80,9 @@ machine-readable errors to stderr as `{"error":"...","code":"..."}`.
 | 5 | Configuration error |
 
 **MCP server:** `pngx mcp` starts an MCP server over stdio for
-tool-calling agents. Provides tools mirroring the CLI: read tools plus
-permission-gated write tools (taxonomy CRUD, document upload/update/delete,
-and document notes).
+tool-calling agents. Provides tools mirroring the CLI: read and write tools
+(taxonomy CRUD, document upload/update/delete, and document notes), with
+annotations for host approval policy.
 
 ## Build commands
 
