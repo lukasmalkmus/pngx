@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Keep launcher helpers available when the host sanitizes PATH.
 - Remove temporary download files before starting the CLI.
 
+### Security
+
+- Update `rustls-webpki` to 0.103.16 to reject distrusted certificate intermediates (RUSTSEC-2026-0382).
+
 ## [0.11.3] - 2026-10-19
 
 ### Changed
