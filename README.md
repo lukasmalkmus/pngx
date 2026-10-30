@@ -16,7 +16,7 @@ operators and AI agents.
 - Field filtering (`-F id,title`) to reduce output size
 - MCP server (`pngx mcp`) for tool-calling agents
 - Structured JSON errors (`--json-errors`) with machine-readable codes
-- Agent-friendly: predictable commands, distinct exit codes, Claude Code plugin
+- Agent-friendly: predictable commands, distinct exit codes, portable agent plugin
 
 ## Installation
 
@@ -53,8 +53,15 @@ pngx search "invoice 2024"
 
 ## Agent integration
 
-pngx ships as a [Claude Code plugin](https://docs.anthropic.com/en/docs/claude-code/plugins)
-with a `paperless` skill for document search workflows.
+pngx ships as an [Agent Plugins 1.0](https://agent-plugins.org) package with an [Agent Skills](https://agentskills.io)-compatible `paperless` skill. It also retains native Claude Code packaging.
+
+### Portable clients and Codex
+
+Install this repository through your client's plugin installer. The portable entry points are `plugin.json`, `mcp.json`, and `skills/paperless/SKILL.md`. The MCP descriptor launches `./bin/pngx`, so a separate CLI installation is optional. The launcher prefers an installed CLI, then a matching binary in the client's persistent `PLUGIN_DATA` directory, then downloads the release binary on first use. Background prefetch hooks are optional.
+
+The bundled launcher supports macOS and Linux and needs Bash, curl, and tar. Windows users can install the native CLI separately and configure `pngx mcp` in their host. Configure credentials using `pngx auth login` before starting MCP. The portable descriptor does not inject URL or token placeholders and preserves the CLI's saved configuration. Custom configuration supplied only through environment variables depends on what the host inherits.
+
+OpenAI-specific presentation and hook declarations live under `extensions.com.openai`. A host may require you to review and trust hooks, but MCP startup does not require those hooks.
 
 ### Install the plugin
 
@@ -73,7 +80,7 @@ Paperless-ngx documents:
 Find all invoices from January 2025 in Paperless
 ```
 
-You can also invoke it explicitly with `/paperless`.
+You can also invoke it explicitly with `/pngx:paperless`.
 
 On enable, Claude Code asks for your Paperless-ngx URL and API token and stores
 the token in your system keychain. Leave both empty to keep using the
@@ -81,9 +88,7 @@ credentials from `pngx auth login`.
 
 ### Confirm before writes
 
-The skill pre-approves read-only commands. Write commands still prompt, unless
-a broader rule of your own already allows them. To force a prompt regardless,
-add this to `~/.claude/settings.json`:
+The skill lists command-specific read-only preapprovals. This metadata does not restrict tool access or guarantee a permission prompt. Confirm write parameters with the user and follow the host's approval policy. In Claude Code, add explicit ask rules to `~/.claude/settings.json` when you want those commands to prompt:
 
 ```json
 {
@@ -106,6 +111,12 @@ add this to `~/.claude/settings.json`:
 
 A plugin cannot ship permission rules, so these have to live in your own
 settings.
+
+### Validate and release plugin changes
+
+Run `uv run --script scripts/validate_plugin.py` to check the pinned Agent Plugins schemas, skill metadata, and synchronized versions. Run `cargo build --bin pngx`, then `PLUGIN_TEST_BINARY=target/debug/pngx python3 scripts/test_plugin.py` for isolated launcher and real MCP handshake tests. These tests do not contact a Paperless server.
+
+When preparing a release, update the crate, root plugin manifest, Claude manifest, and Claude marketplace versions together. Review the release commit and pass CI on its branch. After publication is authorized, tag that exact commit and let the release workflow publish every supported binary archive. Verify the assets before promoting the version-bumped package to marketplace `main`, then refresh installed plugins. Never overwrite a published tag or advertise a version before its binary downloads exist.
 
 ## Usage
 

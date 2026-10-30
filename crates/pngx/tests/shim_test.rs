@@ -1,10 +1,10 @@
-//! Integration tests for `bin/pngx`, the Claude Code plugin shim.
+//! Integration tests for `bin/pngx`, the agent plugin launcher.
 //!
 //! The shim is a bash script, so these tests spawn it as a subprocess with a
 //! carefully controlled environment (empty PATH plus only what each scenario
 //! needs) and assert on stdout/stderr/exit code.
 //!
-//! Only run on Unix; the shim uses `#!/usr/bin/env bash` and is not intended
+//! Only run on Unix; the launcher uses `/bin/bash` and is not intended
 //! to run on Windows directly (users there install `pngx` via cargo/scoop).
 
 #![cfg(unix)]

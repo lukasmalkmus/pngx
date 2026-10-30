@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.4] - 2026-10-30
+
+### Added
+
+- Add portable Agent Plugins 1.0 packaging and an Agent Skills-compatible Paperless skill while retaining Claude Code integration.
+
+### Fixed
+
+- Launch the bundled MCP server in Codex without unresolved Claude-specific executable or credential placeholders.
+- Keep launcher helpers available when the host sanitizes PATH.
+- Remove temporary download files before starting the CLI.
+
+### Security
+
+- Update `rustls-webpki` to 0.103.16 to reject distrusted certificate intermediates (RUSTSEC-2026-0382).
+
 ## [0.11.3] - 2026-10-19
 
 ### Changed
@@ -304,7 +320,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Release workflow with cross-compiled binaries
 - Agent skill for Paperless-ngx document search
 
-[Unreleased]: https://github.com/lukasmalkmus/pngx/compare/v0.11.3...HEAD
+[Unreleased]: https://github.com/lukasmalkmus/pngx/compare/v0.11.4...HEAD
+[0.11.4]: https://github.com/lukasmalkmus/pngx/compare/v0.11.3...v0.11.4
 [0.11.3]: https://github.com/lukasmalkmus/pngx/compare/v0.11.2...v0.11.3
 [0.11.2]: https://github.com/lukasmalkmus/pngx/compare/v0.11.1...v0.11.2
 [0.11.1]: https://github.com/lukasmalkmus/pngx/compare/v0.11.0...v0.11.1
