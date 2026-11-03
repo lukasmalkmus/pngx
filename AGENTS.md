@@ -62,8 +62,9 @@ envelope (`results`, `total_count`, `showing`, `has_more`). NDJSON emits a
 commands return plain JSON arrays.
 
 **Field filtering:** `-F`/`--fields` selects specific fields (e.g.,
-`-F id,title`). Reduces output size and skips unnecessary API calls when
-resolved fields (correspondent, document_type, tags) are not requested.
+`-F id,title`). It reduces output size and skips unnecessary API calls when
+resolved fields (correspondent, document_type, tags) are not requested. Every
+accepted name appears in every format.
 
 **Structured errors:** `--json-errors` (or `PNGX_JSON_ERRORS=1`) emits
 machine-readable errors to stderr as `{"error":"...","code":"..."}`.

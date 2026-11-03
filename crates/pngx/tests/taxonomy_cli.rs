@@ -444,3 +444,65 @@ async fn documents_remove_note_sends_id_query() {
         "unexpected stderr: {stderr}"
     );
 }
+
+#[tokio::test]
+async fn tags_table_shows_any_selected_field_in_the_requested_order() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/tags/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "count": 1,
+            "next": null,
+            "previous": null,
+            "results": [{
+                "id": 1,
+                "name": "Steuer",
+                "slug": "steuer",
+                "color": null,
+                "is_inbox_tag": false,
+                "document_count": 3
+            }]
+        })))
+        .mount(&server)
+        .await;
+
+    let out = run_pngx(&server.uri(), &["tags", "list", "-F", "slug,is_inbox_tag"]);
+    assert!(out.status.success(), "{out:?}");
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    let mut lines = stdout.lines();
+    assert_eq!(lines.next(), Some("| slug   | is_inbox_tag |"));
+    assert_eq!(lines.nth(1), Some("| steuer | false        |"));
+}
+
+#[tokio::test]
+async fn documents_bulk_ndjson_prints_one_line() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/api/documents/bulk_edit/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "result": "OK",
+            "affected_documents": [1, 2]
+        })))
+        .mount(&server)
+        .await;
+
+    let out = run_pngx(
+        &server.uri(),
+        &[
+            "documents",
+            "bulk",
+            "set_correspondent",
+            "--ids",
+            "1,2",
+            "--params",
+            r#"{"correspondent":42}"#,
+            "-o",
+            "ndjson",
+        ],
+    );
+    assert!(out.status.success(), "{out:?}");
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert_eq!(stdout.lines().count(), 1, "{stdout}");
+    let record: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(record["affected_documents"], json!([1, 2]));
+}

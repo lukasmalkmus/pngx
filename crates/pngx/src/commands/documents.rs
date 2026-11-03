@@ -298,16 +298,13 @@ pub fn bulk(
         method,
         parameters,
     })?;
+    let report = serde_json::json!({
+        "result": response.result,
+        "affected_documents": response.affected_documents,
+    });
     match format {
-        OutputFormat::Json | OutputFormat::Ndjson => {
-            println!(
-                "{}",
-                serde_json::to_string_pretty(&serde_json::json!({
-                    "result": response.result,
-                    "affected_documents": response.affected_documents,
-                }))?
-            );
-        }
+        OutputFormat::Json => println!("{}", serde_json::to_string_pretty(&report)?),
+        OutputFormat::Ndjson => println!("{report}"),
         OutputFormat::Markdown => {
             eprintln!(
                 "Bulk edit affected {} document(s)",

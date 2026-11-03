@@ -312,6 +312,9 @@ pngx tags -o json -F id,name
 | Correspondents | `id`, `name`, `slug`, `document_count` |
 | Document Types | `id`, `name`, `slug`, `document_count` |
 
+Every accepted name appears in every format, including markdown. Markdown uses
+the requested names as labels and prints arrays and objects as compact JSON.
+
 Field filtering reduces the JSON payload, saving tokens. It also skips metadata
 API calls when resolved fields (correspondent, document_type, tags) are not
 requested.

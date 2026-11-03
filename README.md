@@ -148,7 +148,8 @@ show all items.
 
 Use `--url` and `--token` to override credentials per-call. Commands that
 produce formatted output accept `-o markdown` (default), `-o json`, or `-o ndjson`.
-Use `-F` / `--fields` to select specific fields (e.g., `-F id,title`).
+Use `-F` / `--fields` to select specific fields (e.g., `-F id,title`). Every
+accepted name appears in every format.
 
 Use `--json-errors` (or `PNGX_JSON_ERRORS=1`) to get structured error output
 on stderr with machine-readable error codes.
