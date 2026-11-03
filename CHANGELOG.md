@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Label markdown columns and detail rows with the `-F` names, in the requested order, and show raw values.
+
+### Fixed
+
+- Fix `-F` dropping accepted fields from markdown output, such as `added`, `archive_serial_number`, `original_file_name`, and `slug`.
+- Write `pngx documents bulk -o ndjson` on one line.
+
 ## [0.11.4] - 2026-10-30
 
 ### Added

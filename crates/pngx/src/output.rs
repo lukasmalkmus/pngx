@@ -45,23 +45,20 @@ impl OutputFormat {
                 Ok(lines.join("\n"))
             }
             Self::Markdown => {
-                let all_headers = T::headers();
-                let indices = fields.map(|f| f.column_indices(all_headers));
-
-                let visible_headers: Vec<&str> = match &indices {
-                    Some(idx) => idx.iter().map(|&i| all_headers[i]).collect(),
-                    None => all_headers.to_vec(),
+                let table = if let Some(filter) = fields {
+                    let labels: Vec<&str> = filter.fields.iter().map(String::as_str).collect();
+                    let mut table = new_markdown_table(&labels);
+                    for item in items {
+                        table.add_row(filter.cells(&serde_json::to_value(item)?));
+                    }
+                    table
+                } else {
+                    let mut table = new_markdown_table(T::headers());
+                    for item in items {
+                        table.add_row(item.row());
+                    }
+                    table
                 };
-
-                let mut table = new_markdown_table(&visible_headers);
-                for item in items {
-                    let all_cols = item.row();
-                    let row: Vec<String> = match &indices {
-                        Some(idx) => idx.iter().map(|&i| all_cols[i].clone()).collect(),
-                        None => all_cols,
-                    };
-                    table.add_row(row);
-                }
                 Ok(table.to_string())
             }
         }
@@ -91,13 +88,15 @@ impl OutputFormat {
             }
             Self::Markdown => {
                 let mut table = new_markdown_table(&["Field", "Value"]);
-                for (field, value) in item.fields() {
-                    if let Some(filter) = fields
-                        && !filter.includes_display_name(field)
-                    {
-                        continue;
+                if let Some(filter) = fields {
+                    let values = filter.cells(&serde_json::to_value(item)?);
+                    for (field, value) in filter.fields.iter().zip(values) {
+                        table.add_row(vec![field.clone(), value]);
                     }
-                    table.add_row(vec![field.to_string(), value]);
+                } else {
+                    for (field, value) in item.fields() {
+                        table.add_row(vec![field.to_string(), value]);
+                    }
                 }
                 Ok(table.to_string())
             }
@@ -136,15 +135,18 @@ impl fmt::Display for FieldFilter {
 impl FieldFilter {
     /// Parse and validate a comma-separated field list against valid fields.
     pub fn parse<T: FieldNames>(input: &str) -> Result<Self, FieldFilterError> {
-        let fields: Vec<String> = input.split(',').map(|s| s.trim().to_string()).collect();
         let valid = T::valid_fields();
 
-        for field in &fields {
-            if !valid.contains(&field.as_str()) {
+        let mut fields: Vec<String> = Vec::new();
+        for field in input.split(',').map(str::trim) {
+            if !valid.contains(&field) {
                 return Err(FieldFilterError {
-                    invalid: field.clone(),
+                    invalid: field.to_string(),
                     valid: valid.iter().map(|s| (*s).to_string()).collect(),
                 });
+            }
+            if !fields.iter().any(|seen| seen == field) {
+                fields.push(field.to_string());
             }
         }
 
@@ -194,10 +196,12 @@ impl FieldFilter {
                 let mut filtered = serde_json::Map::new();
                 for field in &self.fields {
                     let json_key = self.resolve_json_key(field);
-                    if let Some(val) = map.get(json_key) {
-                        // Use the user-facing field name as the output key
-                        filtered.insert(field.clone(), val.clone());
-                    }
+                    let val = map
+                        .get(json_key)
+                        .cloned()
+                        .unwrap_or(serde_json::Value::Null);
+                    // Use the user-facing field name as the output key
+                    filtered.insert(field.clone(), val);
                 }
                 serde_json::Value::Object(filtered)
             }
@@ -205,41 +209,16 @@ impl FieldFilter {
         }
     }
 
-    /// Get column indices matching the filter from Tabular headers.
-    fn column_indices(&self, headers: &[&str]) -> Vec<usize> {
-        headers
+    /// Render the requested fields of a serialized record as table cells.
+    fn cells(&self, value: &serde_json::Value) -> Vec<String> {
+        self.fields
             .iter()
-            .enumerate()
-            .filter(|(_, h)| self.includes_display_name(h))
-            .map(|(i, _)| i)
+            .map(|field| match value.get(self.resolve_json_key(field)) {
+                Some(serde_json::Value::String(s)) => s.clone(),
+                Some(other) => other.to_string(),
+                None => "null".to_string(),
+            })
             .collect()
-    }
-
-    /// Check if a display header name is included in the filter.
-    fn includes_display_name(&self, display_name: &str) -> bool {
-        self.fields.iter().any(|f| {
-            f.eq_ignore_ascii_case(display_name)
-                || match display_name {
-                    "ID" => f == "id",
-                    "Title" => f == "title",
-                    "Correspondent" => f == "correspondent",
-                    "Type" | "Document Type" => f == "document_type",
-                    "Tags" => f == "tags",
-                    "Created" => f == "created",
-                    "Added" => f == "added",
-                    "Name" => f == "name",
-                    "Color" => f == "color",
-                    "Documents" => f == "document_count",
-                    "Slug" => f == "slug",
-                    "Inbox Tag" => f == "is_inbox_tag",
-                    "Path" => f == "path",
-                    "Original File" => f == "original_file_name",
-                    "ASN" => f == "archive_serial_number",
-                    "Note" => f == "note",
-                    "User" => f == "user",
-                    _ => false,
-                }
-        })
     }
 }
 
@@ -517,5 +496,208 @@ impl Tabular for Note {
                 .map(|u| u.username.clone())
                 .unwrap_or_default(),
         ]
+    }
+}
+
+#[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    reason = "tests assert on rendered output of static fixtures"
+)]
+mod tests {
+    use serde::de::DeserializeOwned;
+    use serde_json::{Value, json};
+
+    use super::*;
+
+    fn from_json<T: DeserializeOwned>(value: Value) -> T {
+        serde_json::from_value(value).unwrap()
+    }
+
+    fn document() -> ResolvedDocument {
+        ResolvedDocument {
+            id: 42,
+            title: "Rechnung".to_string(),
+            correspondent: Some(1),
+            correspondent_name: Some("ACME".to_string()),
+            document_type: Some(2),
+            document_type_name: Some("Invoice".to_string()),
+            tags: vec![3],
+            tag_names: vec!["Steuer".to_string()],
+            created: Some(jiff::civil::date(2026, 1, 8)),
+            added: Some(jiff::Timestamp::UNIX_EPOCH),
+            archive_serial_number: Some(7),
+            original_file_name: Some("r.pdf".to_string()),
+        }
+    }
+
+    fn document_unset() -> ResolvedDocument {
+        ResolvedDocument {
+            correspondent: None,
+            correspondent_name: None,
+            document_type: None,
+            document_type_name: None,
+            created: None,
+            added: None,
+            archive_serial_number: None,
+            original_file_name: None,
+            ..document()
+        }
+    }
+
+    fn cell(table: &str, line: usize) -> &str {
+        table.lines().nth(line).unwrap().trim_matches('|').trim()
+    }
+
+    fn assert_selects_only(record: &Value, field: &str, may_be_null: bool) {
+        let object = record.as_object().unwrap();
+        assert_eq!(object.len(), 1, "-F {field}");
+        let value = object.get(field).unwrap();
+        assert!(may_be_null || !value.is_null(), "-F {field}");
+    }
+
+    fn assert_every_field_appears_in_list<T>(item: &T, may_be_null: bool)
+    where
+        T: Tabular + FieldNames + Serialize,
+    {
+        let items = std::slice::from_ref(item);
+        for field in T::valid_fields() {
+            let filter = FieldFilter::parse::<T>(field).unwrap();
+
+            let json = OutputFormat::Json.format_list(items, Some(&filter));
+            let json: Value = serde_json::from_str(&json.unwrap()).unwrap();
+            assert_selects_only(&json[0], field, may_be_null);
+
+            let ndjson = OutputFormat::Ndjson.format_list(items, Some(&filter));
+            let record: Value = serde_json::from_str(&ndjson.unwrap()).unwrap();
+            assert_selects_only(&record, field, may_be_null);
+
+            let table = OutputFormat::Markdown.format_list(items, Some(&filter));
+            assert_eq!(cell(&table.unwrap(), 0), *field);
+        }
+    }
+
+    fn assert_every_field_appears_in_detail(item: &ResolvedDocument, may_be_null: bool) {
+        for field in ResolvedDocument::valid_fields() {
+            let filter = FieldFilter::parse::<ResolvedDocument>(field).unwrap();
+
+            let json = OutputFormat::Json.format_detail(item, Some(&filter));
+            let json: Value = serde_json::from_str(&json.unwrap()).unwrap();
+            assert_selects_only(&json, field, may_be_null);
+
+            let ndjson = OutputFormat::Ndjson
+                .format_detail(item, Some(&filter))
+                .unwrap();
+            assert_eq!(ndjson.lines().count(), 1, "-F {field}");
+            let record: Value = serde_json::from_str(&ndjson).unwrap();
+            assert_selects_only(&record, field, may_be_null);
+
+            let table = OutputFormat::Markdown.format_detail(item, Some(&filter));
+            let table = table.unwrap();
+            let row = table.lines().nth(2).unwrap();
+            assert!(row.starts_with(&format!("| {field} ")), "{row}");
+        }
+    }
+
+    #[test]
+    fn every_document_field_appears_in_every_format() {
+        assert_every_field_appears_in_list(&document(), false);
+        assert_every_field_appears_in_list(&document_unset(), true);
+        assert_every_field_appears_in_detail(&document(), false);
+        assert_every_field_appears_in_detail(&document_unset(), true);
+    }
+
+    #[test]
+    fn every_metadata_field_appears_in_every_format() {
+        let tag: Tag = from_json(json!({
+            "id": 1, "name": "n", "slug": "s", "color": "#fff",
+            "is_inbox_tag": true, "document_count": 3,
+        }));
+        assert_every_field_appears_in_list(&tag, false);
+        let tag: Tag = from_json(json!({
+            "id": 1, "name": "n", "slug": "s", "color": null,
+            "is_inbox_tag": null, "document_count": null,
+        }));
+        assert_every_field_appears_in_list(&tag, true);
+
+        let correspondent: Correspondent =
+            from_json(json!({"id": 1, "name": "n", "slug": "s", "document_count": 3}));
+        assert_every_field_appears_in_list(&correspondent, false);
+
+        let document_type: DocumentType =
+            from_json(json!({"id": 1, "name": "n", "slug": "s", "document_count": 3}));
+        assert_every_field_appears_in_list(&document_type, false);
+
+        let storage_path: StoragePath = from_json(json!({
+            "id": 1, "name": "n", "slug": "s", "path": "p", "document_count": 3,
+        }));
+        assert_every_field_appears_in_list(&storage_path, false);
+
+        let note: Note = from_json(json!({
+            "id": 1, "note": "n", "created": "2026-01-08T00:00:00Z",
+            "user": {"id": 2, "username": "u"},
+        }));
+        assert_every_field_appears_in_list(&note, false);
+        let note: Note = from_json(json!({"id": 1, "note": "n"}));
+        assert_every_field_appears_in_list(&note, true);
+    }
+
+    #[test]
+    fn table_cells_show_the_selected_value_or_null() {
+        let select = |fields| FieldFilter::parse::<ResolvedDocument>(fields).unwrap();
+        let list = |item, fields| {
+            let items = [item];
+            OutputFormat::Markdown
+                .format_list(&items, Some(&select(fields)))
+                .unwrap()
+        };
+
+        assert_eq!(cell(&list(document(), "original_file_name"), 2), "r.pdf");
+        assert_eq!(cell(&list(document_unset(), "added"), 2), "null");
+        assert_eq!(cell(&list(document(), "tags"), 2), r#"["Steuer"]"#);
+
+        let detail = OutputFormat::Markdown
+            .format_detail(&document_unset(), Some(&select("archive_serial_number")))
+            .unwrap();
+        assert!(
+            detail.contains("| archive_serial_number | null"),
+            "{detail}"
+        );
+    }
+
+    #[test]
+    fn table_columns_follow_the_requested_order_once_each() {
+        let filter = FieldFilter::parse::<ResolvedDocument>("title,id,title").unwrap();
+        let table = OutputFormat::Markdown
+            .format_list(&[document()], Some(&filter))
+            .unwrap();
+        assert_eq!(table.lines().next(), Some("| title    | id |"));
+    }
+
+    #[test]
+    fn selection_fills_a_missing_key_with_null() {
+        let filter = FieldFilter::parse::<Tag>("id,color").unwrap();
+        let record = json!({"id": 1});
+        assert_eq!(filter.cells(&record), ["1", "null"]);
+        let record = filter.filter_json_object(record);
+        assert_eq!(record, json!({"id": 1, "color": null}));
+    }
+
+    #[test]
+    fn output_without_selection_keeps_its_shape() {
+        let table = OutputFormat::Markdown
+            .format_list(&[document()], None)
+            .unwrap();
+        let header: Vec<&str> = cell(&table, 0).split('|').map(str::trim).collect();
+        assert_eq!(header, ResolvedDocument::headers());
+
+        let detail = OutputFormat::Markdown
+            .format_detail(&document(), None)
+            .unwrap();
+        assert!(detail.contains("| Document Type "), "{detail}");
+
+        let json = OutputFormat::Json.format_detail(&document(), None).unwrap();
+        let json: Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(json["correspondent"], "ACME");
     }
 }
