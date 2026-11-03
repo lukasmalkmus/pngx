@@ -392,7 +392,7 @@ pngx documents upload invoice.pdf \
   --created 2026-01-15 \
   --wait
 
-# Update metadata (title, correspondent, doctype, storage path, tags).
+# Update metadata (title, correspondent, document type, storage path, tags).
 # --add-tag and --remove-tag route through bulk_edit for server-side
 # atomicity (preferred over --tags for concurrent-safe edits).
 pngx documents update 42 --correspondent "Apple" --add-tag Steuer
