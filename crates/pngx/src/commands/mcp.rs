@@ -429,7 +429,7 @@ struct DocumentsDeleteNoteParams {
 #[tool_router]
 impl PngxMcp {
     /// Search documents matching a query string. Returns matching documents with
-    /// metadata (correspondent, type, tags resolved to names).
+    /// metadata (correspondent, `document_type`, tags resolved to names).
     #[tool(name = "search", annotations(read_only_hint = true))]
     async fn search(&self, params: Parameters<SearchParams>) -> Result<CallToolResult, McpError> {
         let client = self.client.clone();
@@ -954,7 +954,7 @@ impl PngxMcp {
         to_json_text(&result)
     }
 
-    /// Update a document's metadata (title, correspondent, doctype, etc.).
+    /// Update a document's metadata (title, correspondent, `document_type`, etc.).
     /// Per-tag add/remove should go via `documents_bulk_edit` with
     /// method=`add_tag` or `remove_tag` for atomic server-side behavior.
     #[tool(name = "documents_update", annotations(read_only_hint = false))]
