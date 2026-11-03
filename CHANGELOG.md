@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Label markdown columns and detail rows with the `-F` names, in the requested order, and show raw values.
+- Refresh dependencies via `cargo update`, including `rmcp` 3.8.0 and `open` 5.4.5.
 
 ### Fixed
 
