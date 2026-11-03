@@ -1,6 +1,6 @@
 {
   "name": "pngx",
-  "version": "0.11.4",
+  "version": "0.11.5",
   "description": "Search, retrieve, and manage documents in Paperless-ngx",
   "author": {
     "name": "Lukas Malkmus",

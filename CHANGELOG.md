@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.5] - 2026-11-03
+
 ### Changed
 
 - Label markdown columns and detail rows with the `-F` names, in the requested order, and show raw values.
@@ -330,7 +332,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Release workflow with cross-compiled binaries
 - Agent skill for Paperless-ngx document search
 
-[Unreleased]: https://github.com/lukasmalkmus/pngx/compare/v0.11.4...HEAD
+[Unreleased]: https://github.com/lukasmalkmus/pngx/compare/v0.11.5...HEAD
+[0.11.5]: https://github.com/lukasmalkmus/pngx/compare/v0.11.4...v0.11.5
 [0.11.4]: https://github.com/lukasmalkmus/pngx/compare/v0.11.3...v0.11.4
 [0.11.3]: https://github.com/lukasmalkmus/pngx/compare/v0.11.2...v0.11.3
 [0.11.2]: https://github.com/lukasmalkmus/pngx/compare/v0.11.1...v0.11.2
